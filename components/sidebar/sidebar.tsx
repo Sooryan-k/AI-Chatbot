@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FolderPlus, PanelLeftClose, Plus } from "lucide-react";
 import { useConversations } from "@/lib/use-conversations";
@@ -43,10 +44,14 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
       {/* Header */}
       <div className="flex items-center gap-2 p-3">
-        <span className="px-1 text-lg font-semibold">
+        <Link
+          href="/"
+          onClick={onClose}
+          className="rounded-lg px-1 text-lg font-semibold transition-colors hover:text-emerald-600 dark:hover:text-emerald-400"
+        >
           Zooper
           <span className="text-emerald-600 dark:text-emerald-400">Chat</span>
-        </span>
+        </Link>
         {onClose && (
           <button
             type="button"

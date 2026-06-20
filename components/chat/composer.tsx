@@ -36,7 +36,7 @@ export function Composer({
   const canSend = value.trim().length > 0;
 
   return (
-    <div className="border-t border-border bg-background/80 backdrop-blur">
+    <div className="shrink-0 border-t border-border bg-background/80 backdrop-blur">
       <div className="mx-auto w-full max-w-3xl px-4 py-3">
         <div className="flex items-end gap-2 rounded-2xl border border-border bg-card px-3 py-2 shadow-sm transition-colors focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20">
           <textarea

@@ -47,7 +47,7 @@ export function Chat({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {messages.length === 0 ? (
         <EmptyState onPick={(prompt) => sendMessage({ text: prompt })} />
       ) : (

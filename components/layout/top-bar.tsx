@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Menu, SquarePen } from "lucide-react";
 import { newId } from "@/lib/utils";
@@ -19,10 +20,10 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         >
           <Menu size={20} />
         </button>
-        <span className="font-semibold lg:hidden">
+        <Link href="/" className="font-semibold lg:hidden">
           Zooper
           <span className="text-emerald-600 dark:text-emerald-400">Chat</span>
-        </span>
+        </Link>
       </div>
 
       <div className="flex items-center gap-2">
