@@ -46,7 +46,7 @@ export function Composer({
             onKeyDown={onKeyDown}
             rows={1}
             placeholder="Message ZooperChat…"
-            className="max-h-[200px] flex-1 resize-none bg-transparent py-1.5 text-[0.95rem] outline-none placeholder:text-muted-foreground"
+            className="max-h-50 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
           />
           {isBusy ? (
             <button
