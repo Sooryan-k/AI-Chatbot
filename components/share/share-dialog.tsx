@@ -25,7 +25,11 @@ export function ShareDialog({
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      // Flash the "Copied" feedback briefly, then auto-close the dialog.
+      setTimeout(() => {
+        setCopied(false);
+        onClose();
+      }, 600);
     } catch {
       /* ignore */
     }
