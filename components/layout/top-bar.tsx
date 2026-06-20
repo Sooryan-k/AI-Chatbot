@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Menu, SquarePen } from "lucide-react";
 import { newId } from "@/lib/utils";
 import { ModelBadge } from "@/components/chat/model-badge";
+import { ShareButton } from "@/components/share/share-button";
 
 export function TopBar({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
@@ -26,6 +27,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
       </div>
 
       <div className="flex items-center gap-2">
+        <ShareButton />
         <ModelBadge />
         <button
           type="button"

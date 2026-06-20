@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { FolderPlus, PanelLeftClose, Plus } from "lucide-react";
 import { useConversations } from "@/lib/use-conversations";
-import { useProjects, createProject } from "@/lib/use-projects";
+import { useProjects } from "@/lib/use-projects";
 import { groupConversationsByDate, newId } from "@/lib/utils";
 import { ConversationItem } from "./conversation-item";
 import { ProjectItem } from "./project-item";
+import { NewProjectDialog } from "./new-project-dialog";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
@@ -14,6 +16,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const projects = useProjects();
   const pathname = usePathname();
   const router = useRouter();
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
 
   const activeId = pathname?.startsWith("/c/")
     ? decodeURIComponent(pathname.slice(3))
@@ -25,7 +28,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   }
 
   function handleNewProject() {
-    createProject("New Project");
+    setProjectDialogOpen(true);
   }
 
   // Partition conversations: project-assigned vs standalone
@@ -85,20 +88,8 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             </button>
           </div>
 
-          {projects.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-muted-foreground">
-              No projects yet. Click{" "}
-              <button
-                type="button"
-                onClick={handleNewProject}
-                className="font-medium text-emerald-600 underline-offset-2 hover:underline dark:text-emerald-400"
-              >
-                +
-              </button>{" "}
-              to create one.
-            </p>
-          ) : (
-            <ul className="space-y-0.5">
+          {projects.length > 0 && (
+            <ul className="mb-1 space-y-0.5">
               {projects.map((p) => (
                 <ProjectItem
                   key={p.id}
@@ -110,6 +101,18 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
               ))}
             </ul>
           )}
+
+          {/* Modern "New project" affordance */}
+          <button
+            type="button"
+            onClick={handleNewProject}
+            className="group flex w-full items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-emerald-500/60 hover:bg-emerald-500/5 hover:text-foreground"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 transition-colors group-hover:bg-emerald-500/20 dark:text-emerald-400">
+              <FolderPlus size={14} />
+            </span>
+            {projects.length === 0 ? "Create your first project" : "New project"}
+          </button>
         </div>
 
         {/* ── Chats ── */}
@@ -151,6 +154,11 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       <div className="border-t border-border p-2">
         <ThemeToggle />
       </div>
+
+      <NewProjectDialog
+        open={projectDialogOpen}
+        onClose={() => setProjectDialogOpen(false)}
+      />
     </div>
   );
 }

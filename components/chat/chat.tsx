@@ -2,21 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type FileUIPart } from "ai";
+import { DefaultChatTransport } from "ai";
 import type { ChatMessage } from "@/lib/types";
 import { saveMessages } from "@/lib/use-conversations";
 import { MessageList } from "./message-list";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
 
 export function Chat({
   conversationId,
@@ -37,6 +28,8 @@ export function Chat({
     transport,
   });
 
+  // Persist on submit (so the chat appears in the sidebar immediately) and on
+  // completion / error. Per-token streaming writes are intentionally skipped.
   useEffect(() => {
     if (messages.length === 0) return;
     if (status === "ready" || status === "submitted" || status === "error") {
@@ -46,34 +39,17 @@ export function Chat({
 
   const isBusy = status === "submitted" || status === "streaming";
 
-  async function handleSend(files: File[]) {
+  function handleSend() {
     const text = input.trim();
-    if ((!text && files.length === 0) || isBusy) return;
+    if (!text || isBusy) return;
     setInput("");
-
-    if (files.length === 0) {
-      sendMessage({ text });
-      return;
-    }
-
-    const fileParts: FileUIPart[] = await Promise.all(
-      files.map(async (file) => ({
-        type: "file" as const,
-        mediaType: file.type || "application/octet-stream",
-        filename: file.name,
-        url: await fileToDataUrl(file),
-      })),
-    );
-
-    sendMessage({ text, files: fileParts });
+    sendMessage({ text });
   }
 
   return (
     <div className="flex h-full flex-col">
       {messages.length === 0 ? (
-        <EmptyState
-          onPick={(prompt) => sendMessage({ text: prompt })}
-        />
+        <EmptyState onPick={(prompt) => sendMessage({ text: prompt })} />
       ) : (
         <MessageList
           messages={messages}

@@ -1,11 +1,22 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { TopBar } from "./top-bar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  // The shared read-only view is standalone — no sidebar or top bar.
+  if (pathname?.startsWith("/share")) {
+    return (
+      <div className="h-dvh w-full overflow-y-auto bg-background text-foreground">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">

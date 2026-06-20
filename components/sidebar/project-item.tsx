@@ -10,13 +10,16 @@ import {
   FolderOpen,
   Pencil,
   Plus,
+  Share2,
   Trash2,
   X,
 } from "lucide-react";
 import type { Conversation, Project } from "@/lib/types";
 import { renameProject, deleteProject } from "@/lib/use-projects";
 import { newChatInProject } from "@/lib/use-conversations";
+import { useShare } from "@/lib/use-share";
 import { cn } from "@/lib/utils";
+import { ShareDialog } from "@/components/share/share-dialog";
 import { ConversationItem } from "./conversation-item";
 
 export function ProjectItem({
@@ -31,11 +34,14 @@ export function ProjectItem({
   onNavigate?: () => void;
 }) {
   const router = useRouter();
+  const share = useShare();
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const accent = project.color ?? "#10b981";
 
   useEffect(() => {
     if (editing) inputRef.current?.select();
@@ -69,6 +75,22 @@ export function ProjectItem({
 
   const isActive = conversations.some((c) => c.id === activeId);
 
+  const shareableChats = conversations.filter((c) => c.messages.length > 0);
+  const canShare = shareableChats.length > 0;
+
+  function handleShare() {
+    share.share({
+      v: 1,
+      kind: "project",
+      title: project.name,
+      createdAt: Date.now(),
+      chats: shareableChats.map((c) => ({
+        title: c.title,
+        messages: c.messages,
+      })),
+    });
+  }
+
   return (
     <div>
       {/* Project header row */}
@@ -84,9 +106,9 @@ export function ProjectItem({
           className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
         >
           {expanded ? (
-            <FolderOpen size={15} className="shrink-0 text-emerald-500" />
+            <FolderOpen size={15} className="shrink-0" style={{ color: accent }} />
           ) : (
-            <Folder size={15} className="shrink-0 text-muted-foreground" />
+            <Folder size={15} className="shrink-0" style={{ color: accent }} />
           )}
           {editing ? (
             <input
@@ -131,6 +153,16 @@ export function ProjectItem({
             </span>
           ) : (
             <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              {canShare && (
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  title="Share project"
+                  className="rounded p-1 text-muted-foreground hover:bg-emerald-500/15 hover:text-emerald-600 dark:hover:text-emerald-400"
+                >
+                  <Share2 size={13} />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={startEdit}
@@ -179,6 +211,15 @@ export function ProjectItem({
           )}
         </div>
       )}
+
+      <ShareDialog
+        open={share.open}
+        onClose={share.close}
+        kind="project"
+        url={share.url}
+        loading={share.loading}
+        error={share.error}
+      />
     </div>
   );
 }

@@ -52,9 +52,15 @@ export function useProjects(): Project[] {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-export function createProject(name: string): Project {
+export function createProject(name: string, color?: string): Project {
   const now = Date.now();
-  const project: Project = { id: newId(), name: name.trim() || "New Project", createdAt: now, updatedAt: now };
+  const project: Project = {
+    id: newId(),
+    name: name.trim() || "New Project",
+    color,
+    createdAt: now,
+    updatedAt: now,
+  };
   commit([project, ...getSnapshot()]);
   return project;
 }
