@@ -31,7 +31,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         <button
           type="button"
           onClick={() => router.push(`/c/${newId()}`)}
-          className="rounded-lg p-2 hover:bg-muted lg:hidden"
+          className="rounded-lg p-2.5 hover:bg-muted active:bg-emerald-500/15 lg:hidden"
           aria-label="New chat"
         >
           <SquarePen size={18} />

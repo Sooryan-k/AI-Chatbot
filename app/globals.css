@@ -64,9 +64,29 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  /* Stop mobile browsers from auto-inflating text ("font boosting") and from
+     scrolling/zooming the page horizontally on first load. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
+  overflow-x: hidden;
+}
+
+/* iOS Safari zooms in whenever you focus a control whose font-size is < 16px.
+   Force 16px on small screens so tapping the message box never zooms the UI
+   (which would also push the top-bar buttons out of view). */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 /* Tailwind v4's Preflight no longer sets cursor:pointer on buttons — restore
