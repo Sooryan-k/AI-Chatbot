@@ -15,9 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EmeraldChat — Local AI Chat",
-  description:
-    "A ChatGPT-style chat interface powered by OpenRouter.",
+  title: "VedantChat — AI Chat",
+  description: "A ChatGPT-style chat interface powered by OpenRouter.",
 };
 
 export default function RootLayout({

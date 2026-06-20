@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import type { ChatMessage, Conversation } from "./types";
 import { readConversations, writeConversations, STORAGE_KEY } from "./storage";
-import { deriveTitle } from "./utils";
+import { deriveTitle, newId } from "./utils";
 
 /**
  * A tiny external store for conversations, backed by localStorage and shared
@@ -80,7 +80,6 @@ export function saveMessages(id: string, messages: ChatMessage[]): void {
           ? {
               ...c,
               messages,
-              // Keep a user-set/derived title, otherwise (re)derive it.
               title:
                 c.title && c.title !== "New chat"
                   ? c.title
@@ -113,4 +112,15 @@ export function renameConversation(id: string, title: string): void {
 
 export function deleteConversation(id: string): void {
   commit(getSnapshot().filter((c) => c.id !== id));
+}
+
+/** Pre-create an empty conversation inside a project, return its id. */
+export function newChatInProject(projectId: string): string {
+  const id = newId();
+  const now = Date.now();
+  commit([
+    { id, title: "New chat", messages: [], createdAt: now, updatedAt: now, projectId },
+    ...getSnapshot(),
+  ]);
+  return id;
 }

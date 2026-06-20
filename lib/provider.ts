@@ -21,7 +21,7 @@ const provider = createOpenAICompatible({
   // Optional OpenRouter attribution headers.
   headers: {
     "HTTP-Referer": process.env.AI_SITE_URL ?? "http://localhost:3000",
-    "X-Title": "EmeraldChat",
+    "X-Title": "VedantChat",
   },
 });
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, Check, Copy, RotateCcw } from "lucide-react";
+import { Bot, Check, Copy, FileText, RotateCcw } from "lucide-react";
+import { isFileUIPart, type FileUIPart } from "ai";
 import type { ChatMessage } from "@/lib/types";
 import { getMessageText } from "@/lib/utils";
 import { Markdown } from "./markdown";
@@ -29,6 +30,34 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function FileAttachments({ parts }: { parts: FileUIPart[] }) {
+  if (parts.length === 0) return null;
+  return (
+    <div className="mb-2 flex flex-wrap gap-2">
+      {parts.map((part, i) =>
+        part.mediaType.startsWith("image/") ? (
+          // Data URLs can't go through next/image — disable the rule here.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={i}
+            src={part.url}
+            alt={part.filename ?? "attached image"}
+            className="max-h-48 max-w-xs rounded-xl object-cover shadow-sm"
+          />
+        ) : (
+          <div
+            key={i}
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-700/80 px-3 py-1.5 text-xs text-white shadow-sm"
+          >
+            <FileText size={13} />
+            <span className="max-w-35 truncate">{part.filename ?? "file"}</span>
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
 export function Message({
   message,
   onRegenerate,
@@ -37,13 +66,21 @@ export function Message({
   onRegenerate?: () => void;
 }) {
   const text = getMessageText(message);
+  const fileParts = message.parts.filter(isFileUIPart) as FileUIPart[];
 
   if (message.role === "user") {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-emerald-600 px-4 py-2.5 text-[0.95rem] text-white shadow-sm">
-          {text}
-        </div>
+      <div className="flex flex-col items-end gap-1">
+        {fileParts.length > 0 && (
+          <div className="max-w-[85%]">
+            <FileAttachments parts={fileParts} />
+          </div>
+        )}
+        {text && (
+          <div className="max-w-[85%] whitespace-pre-wrap wrap-break-word rounded-2xl rounded-br-md bg-emerald-600 px-4 py-2.5 text-[0.95rem] text-white shadow-sm">
+            {text}
+          </div>
+        )}
       </div>
     );
   }

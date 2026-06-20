@@ -10,4 +10,13 @@ export interface Conversation {
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;
+  projectId?: string;
+}
+
+/** A named project that groups conversations. */
+export interface Project {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
 }
