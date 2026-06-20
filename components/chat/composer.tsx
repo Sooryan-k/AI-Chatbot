@@ -45,7 +45,7 @@ export function Composer({
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
-            placeholder="Message VedantChat…"
+            placeholder="Message ZooperChat…"
             className="max-h-[200px] flex-1 resize-none bg-transparent py-1.5 text-[0.95rem] outline-none placeholder:text-muted-foreground"
           />
           {isBusy ? (

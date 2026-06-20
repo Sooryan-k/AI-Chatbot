@@ -59,7 +59,7 @@ export default function SharePage() {
           href="/"
           className="mt-6 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
-          Go to VedantChat
+          Go to ZooperChat
         </Link>
       </div>
     );

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VedantChat — AI Chat",
+  title: "ZooperChat — AI Chat",
   description: "A ChatGPT-style chat interface powered by OpenRouter.",
 };
 

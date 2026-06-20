@@ -24,7 +24,7 @@ export function SharedView({ payload }: { payload: SharePayload }) {
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
             <span className="text-lg font-semibold">
-              Vedant
+              Zooper
               <span className="text-emerald-600 dark:text-emerald-400">Chat</span>
             </span>
             <span className="hidden rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 sm:inline dark:text-emerald-300">
@@ -70,7 +70,7 @@ export function SharedView({ payload }: { payload: SharePayload }) {
         )}
 
         <p className="mt-10 border-t border-border pt-4 text-center text-xs text-muted-foreground">
-          This is a read-only snapshot shared from VedantChat.
+          This is a read-only snapshot shared from ZooperChat.
         </p>
       </main>
     </div>

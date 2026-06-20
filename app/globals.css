@@ -69,6 +69,20 @@ body {
   color: var(--foreground);
 }
 
+/* Tailwind v4's Preflight no longer sets cursor:pointer on buttons — restore
+   the expected pointer cursor on interactive elements (and a not-allowed
+   cursor when disabled). */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label[for],
+summary {
+  cursor: pointer;
+}
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* Thin, theme-aware scrollbars. */
 * {
   scrollbar-width: thin;

@@ -44,7 +44,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       {/* Header */}
       <div className="flex items-center gap-2 p-3">
         <span className="px-1 text-lg font-semibold">
-          Vedant
+          Zooper
           <span className="text-emerald-600 dark:text-emerald-400">Chat</span>
         </span>
         {onClose && (

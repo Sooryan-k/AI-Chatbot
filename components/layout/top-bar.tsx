@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { Menu, SquarePen } from "lucide-react";
 import { newId } from "@/lib/utils";
-import { ModelBadge } from "@/components/chat/model-badge";
 import { ShareButton } from "@/components/share/share-button";
 
 export function TopBar({ onMenu }: { onMenu: () => void }) {
@@ -21,14 +20,13 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
           <Menu size={20} />
         </button>
         <span className="font-semibold lg:hidden">
-          Vedant
+          Zooper
           <span className="text-emerald-600 dark:text-emerald-400">Chat</span>
         </span>
       </div>
 
       <div className="flex items-center gap-2">
         <ShareButton />
-        <ModelBadge />
         <button
           type="button"
           onClick={() => router.push(`/c/${newId()}`)}
