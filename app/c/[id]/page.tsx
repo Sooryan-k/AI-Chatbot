@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useConversations } from "@/lib/use-conversations";
+import { useConversations, useConversationsLoaded } from "@/lib/use-conversations";
 import { useMounted } from "@/lib/use-mounted";
 import { Chat } from "@/components/chat/chat";
 
@@ -17,11 +17,13 @@ export default function ConversationPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const conversations = useConversations();
+  const conversationsLoaded = useConversationsLoaded();
   const mounted = useMounted();
 
-  // Wait for the client to mount so localStorage has loaded; this guarantees
-  // <Chat> mounts exactly once with the correct initial messages.
-  if (!mounted) return <ChatSkeleton />;
+  // Wait until both the component is mounted AND the Supabase fetch has
+  // completed so <Chat> always receives the correct initialMessages on
+  // its first and only render (key={id} won't remount on data changes).
+  if (!mounted || !conversationsLoaded) return <ChatSkeleton />;
 
   const conversation = conversations.find((c) => c.id === id);
 

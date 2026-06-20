@@ -2,125 +2,156 @@
 
 import { useSyncExternalStore } from "react";
 import type { ChatMessage, Conversation } from "./types";
-import { readConversations, writeConversations, STORAGE_KEY } from "./storage";
+import {
+  fetchConversations,
+  upsertConversation,
+  deleteConversationRemote,
+} from "./storage";
 import { deriveTitle, newId } from "./utils";
 
 /**
- * A tiny external store for conversations, backed by localStorage and shared
- * across components via useSyncExternalStore. All persistence flows through here
- * so swapping localStorage for a DB later is a single-file change.
+ * Supabase-backed external store for conversations.
+ * Same public API as the old localStorage version — all UI components unchanged.
+ *
+ * Mutations are optimistic: UI updates instantly while the async write happens
+ * in the background. On error we log and leave the cache as-is (the next load
+ * will reconcile with the server).
  */
 
 const EMPTY: Conversation[] = [];
 
 let cache: Conversation[] | null = null;
+let loaded = false;
+let loadPromise: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
+function emit(): void {
+  for (const listener of listeners) listener();
+}
+
 function getSnapshot(): Conversation[] {
-  if (cache === null) cache = readConversations();
-  return cache;
+  return cache ?? EMPTY;
 }
 
 function getServerSnapshot(): Conversation[] {
   return EMPTY;
 }
 
-function emit(): void {
-  for (const listener of listeners) listener();
-}
-
-function commit(next: Conversation[]): void {
-  cache = next;
-  writeConversations(next);
+async function load(): Promise<void> {
+  try {
+    cache = await fetchConversations();
+    loaded = true;
+  } catch {
+    loaded = true; // don't retry forever
+  }
   emit();
 }
 
-function handleStorageEvent(event: StorageEvent): void {
-  if (event.key === STORAGE_KEY) {
-    cache = readConversations();
-    emit();
-  }
-}
-
 function subscribe(listener: () => void): () => void {
-  if (listeners.size === 0 && typeof window !== "undefined") {
-    window.addEventListener("storage", handleStorageEvent);
-  }
   listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-    if (listeners.size === 0 && typeof window !== "undefined") {
-      window.removeEventListener("storage", handleStorageEvent);
-    }
-  };
+  // Kick off the initial Supabase fetch exactly once.
+  if (loadPromise === null) {
+    loadPromise = load();
+  }
+  return () => listeners.delete(listener);
 }
 
-/** Reactive list of all conversations (unsorted — order as stored). */
+/** Reset the module-level store (called on sign-out). */
+export function resetConversationStore(): void {
+  cache = null;
+  loaded = false;
+  loadPromise = null;
+  emit();
+}
+
+/** True once the initial Supabase fetch has completed. */
+export function useConversationsLoaded(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => loaded,
+    () => false,
+  );
+}
+
+/** Reactive list of all conversations (ordered by updatedAt desc, as returned by Supabase). */
 export function useConversations(): Conversation[] {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-/** Non-reactive read of a single conversation (e.g. for initial messages). */
+/** Non-reactive read of a single conversation. */
 export function getConversation(id: string): Conversation | undefined {
-  return getSnapshot().find((c) => c.id === id);
+  return (cache ?? []).find((c) => c.id === id);
 }
 
-/* ----------------------------- mutations ----------------------------- */
+// ── Mutations ─────────────────────────────────────────────────────────────────
 
-/** Create or update a conversation's messages. Auto-titles new conversations. */
+function commitOptimistic(next: Conversation[]): void {
+  cache = next;
+  emit();
+  // Sort by updatedAt desc to match server ordering.
+  cache = [...next].sort((a, b) => b.updatedAt - a.updatedAt);
+  emit();
+}
+
 export function saveMessages(id: string, messages: ChatMessage[]): void {
-  const list = getSnapshot();
+  const list = cache ?? [];
   const existing = list.find((c) => c.id === id);
   const now = Date.now();
 
+  let updated: Conversation;
   if (existing) {
-    commit(
-      list.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              messages,
-              title:
-                c.title && c.title !== "New chat"
-                  ? c.title
-                  : deriveTitle(messages),
-              updatedAt: now,
-            }
-          : c,
-      ),
-    );
-    return;
+    updated = {
+      ...existing,
+      messages,
+      title:
+        existing.title && existing.title !== "New chat"
+          ? existing.title
+          : deriveTitle(messages),
+      updatedAt: now,
+    };
+    commitOptimistic(list.map((c) => (c.id === id ? updated : c)));
+  } else {
+    updated = {
+      id,
+      title: deriveTitle(messages),
+      messages,
+      createdAt: now,
+      updatedAt: now,
+    };
+    commitOptimistic([updated, ...list]);
   }
 
-  const conversation: Conversation = {
-    id,
-    title: deriveTitle(messages),
-    messages,
-    createdAt: now,
-    updatedAt: now,
-  };
-  commit([conversation, ...list]);
+  upsertConversation(updated).catch(console.error);
 }
 
 export function renameConversation(id: string, title: string): void {
-  const list = getSnapshot();
   const trimmed = title.trim();
-  commit(
-    list.map((c) => (c.id === id ? { ...c, title: trimmed || c.title } : c)),
-  );
+  const list = cache ?? [];
+  const target = list.find((c) => c.id === id);
+  if (!target) return;
+  const updated = { ...target, title: trimmed || target.title, updatedAt: Date.now() };
+  commitOptimistic(list.map((c) => (c.id === id ? updated : c)));
+  upsertConversation(updated).catch(console.error);
 }
 
 export function deleteConversation(id: string): void {
-  commit(getSnapshot().filter((c) => c.id !== id));
+  commitOptimistic((cache ?? []).filter((c) => c.id !== id));
+  deleteConversationRemote(id).catch(console.error);
 }
 
 /** Pre-create an empty conversation inside a project, return its id. */
 export function newChatInProject(projectId: string): string {
   const id = newId();
   const now = Date.now();
-  commit([
-    { id, title: "New chat", messages: [], createdAt: now, updatedAt: now, projectId },
-    ...getSnapshot(),
-  ]);
+  const conv: Conversation = {
+    id,
+    title: "New chat",
+    messages: [],
+    createdAt: now,
+    updatedAt: now,
+    projectId,
+  };
+  commitOptimistic([conv, ...(cache ?? [])]);
+  upsertConversation(conv).catch(console.error);
   return id;
 }

@@ -2,50 +2,63 @@
 
 import { useSyncExternalStore } from "react";
 import type { Project } from "./types";
-import { readProjects, writeProjects, PROJECTS_STORAGE_KEY } from "./storage";
+import {
+  fetchProjects,
+  upsertProject,
+  deleteProjectRemote,
+} from "./storage";
 import { newId } from "./utils";
 
 const EMPTY: Project[] = [];
 let cache: Project[] | null = null;
+let loaded = false;
+let loadPromise: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
+function emit(): void {
+  for (const listener of listeners) listener();
+}
+
 function getSnapshot(): Project[] {
-  if (cache === null) cache = readProjects();
-  return cache;
+  return cache ?? EMPTY;
 }
 
 function getServerSnapshot(): Project[] {
   return EMPTY;
 }
 
-function emit(): void {
-  for (const listener of listeners) listener();
-}
-
-function commit(next: Project[]): void {
-  cache = next;
-  writeProjects(next);
+async function load(): Promise<void> {
+  try {
+    cache = await fetchProjects();
+    loaded = true;
+  } catch {
+    loaded = true;
+  }
   emit();
 }
 
-function handleStorageEvent(event: StorageEvent): void {
-  if (event.key === PROJECTS_STORAGE_KEY) {
-    cache = readProjects();
-    emit();
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  if (loadPromise === null) {
+    loadPromise = load();
   }
+  return () => listeners.delete(listener);
 }
 
-function subscribe(listener: () => void): () => void {
-  if (listeners.size === 0 && typeof window !== "undefined") {
-    window.addEventListener("storage", handleStorageEvent);
-  }
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-    if (listeners.size === 0 && typeof window !== "undefined") {
-      window.removeEventListener("storage", handleStorageEvent);
-    }
-  };
+/** Reset the module-level store (called on sign-out). */
+export function resetProjectStore(): void {
+  cache = null;
+  loaded = false;
+  loadPromise = null;
+  emit();
+}
+
+export function useProjectsLoaded(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => loaded,
+    () => false,
+  );
 }
 
 export function useProjects(): Project[] {
@@ -61,19 +74,25 @@ export function createProject(name: string, color?: string): Project {
     createdAt: now,
     updatedAt: now,
   };
-  commit([project, ...getSnapshot()]);
+  cache = [project, ...(cache ?? [])];
+  emit();
+  upsertProject(project).catch(console.error);
   return project;
 }
 
 export function renameProject(id: string, name: string): void {
   const trimmed = name.trim();
-  commit(
-    getSnapshot().map((p) =>
-      p.id === id ? { ...p, name: trimmed || p.name, updatedAt: Date.now() } : p,
-    ),
-  );
+  const list = cache ?? [];
+  const target = list.find((p) => p.id === id);
+  if (!target) return;
+  const updated = { ...target, name: trimmed || target.name, updatedAt: Date.now() };
+  cache = list.map((p) => (p.id === id ? updated : p));
+  emit();
+  upsertProject(updated).catch(console.error);
 }
 
 export function deleteProject(id: string): void {
-  commit(getSnapshot().filter((p) => p.id !== id));
+  cache = (cache ?? []).filter((p) => p.id !== id);
+  emit();
+  deleteProjectRemote(id).catch(console.error);
 }
