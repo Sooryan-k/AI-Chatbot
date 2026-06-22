@@ -17,6 +17,9 @@ const COLORS = [
   "#64748b", // slate
 ];
 
+// modal for creating a project. it has a live preview, a name field and a
+// color picker, then calls createProject and closes. enter submits, escape
+// closes (handled by the modal).
 export function NewProjectDialog({
   open,
   onClose,

@@ -1,5 +1,9 @@
 "use client";
 
+// reactive store for projects, backed by supabase. it mirrors use-conversations:
+// a module level cache shared through useSyncExternalStore, with optimistic
+// mutations that update the cache instantly and write to supabase in the
+// background. resetProjectStore clears it on sign out.
 import { useSyncExternalStore } from "react";
 import type { Project } from "./types";
 import {

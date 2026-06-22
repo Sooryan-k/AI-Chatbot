@@ -22,6 +22,9 @@ import { cn } from "@/lib/utils";
 import { ShareDialog } from "@/components/share/share-dialog";
 import { ConversationItem } from "./conversation-item";
 
+// one project folder in the sidebar. it expands to show its chats, supports
+// inline rename and a two step delete, can start a new chat inside the project,
+// and can share the whole project as a read only link.
 export function ProjectItem({
   project,
   conversations,

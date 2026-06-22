@@ -9,6 +9,9 @@ import { MessageList } from "./message-list";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 
+// core chat surface for one conversation. it wires the ai sdk useChat hook to
+// our composer and message list, and persists messages to supabase as the
+// status changes. initialMessages seeds the thread on first mount only.
 export function Chat({
   conversationId,
   initialMessages,

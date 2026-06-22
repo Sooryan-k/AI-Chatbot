@@ -4,6 +4,9 @@ import { useState } from "react";
 import { Check, Copy, Globe, Loader2, ExternalLink } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 
+// modal that shows the generated share link with a copy button. it is purely
+// prop driven (the useShare hook owns the state) and auto closes shortly after
+// the link is copied.
 export function ShareDialog({
   open,
   onClose,

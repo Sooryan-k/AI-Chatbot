@@ -12,6 +12,9 @@ type State =
   | { status: "error"; message: string }
   | { status: "ready"; payload: SharePayload };
 
+// public read only page for a shared chat or project. the id in the url is
+// looked up in supabase (anyone can read), then handed to the shared view. it
+// shows a loading spinner first and a friendly message if the link is gone.
 export default function SharePage() {
   const params = useParams<{ id: string }>();
   const id = params.id;

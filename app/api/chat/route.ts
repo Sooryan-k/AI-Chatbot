@@ -1,3 +1,7 @@
+// streaming chat endpoint. it receives the full message history from the
+// browser, forwards it to the configured openai compatible provider and streams
+// the reply back token by token. it stores nothing itself; the client persists
+// chats to supabase. runs on the node runtime so the provider sdk works.
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { getModel, MODEL } from "@/lib/provider";
 

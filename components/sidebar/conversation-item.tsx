@@ -10,6 +10,9 @@ import {
 } from "@/lib/use-conversations";
 import { cn } from "@/lib/utils";
 
+// one chat row in the sidebar. clicking it opens the chat; hovering reveals
+// inline rename and a two step delete. used both for standalone chats and for
+// chats nested inside a project.
 export function ConversationItem({
   conversation,
   active,

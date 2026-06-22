@@ -24,6 +24,9 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+// root layout for every page. it loads the fonts, sets the theme provider for
+// dark and light mode, and wraps all pages in the app shell which handles the
+// sidebar, top bar and auth gating.
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {

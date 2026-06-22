@@ -7,8 +7,12 @@ import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
 import { CodeBlock } from "./code-block";
 
+// renders assistant answers from markdown to react. it supports github
+// flavored markdown (tables, lists) and syntax highlighting, and overrides a
+// few elements: code blocks, inline code, links open in a new tab, and tables
+// get a horizontal scroll wrapper for mobile.
 const components: Components = {
-  // Block code is wrapped in <pre>; render our CodeBlock chrome around it.
+  // block code is wrapped in <pre>; render our code block chrome around it.
   pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
   // Inline code (no language class) gets a subtle pill; block code keeps the
   // hljs classes so syntax highlighting applies inside CodeBlock.

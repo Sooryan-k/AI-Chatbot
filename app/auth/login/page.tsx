@@ -4,6 +4,9 @@ import { useState, type FormEvent } from "react";
 import { Sparkles } from "lucide-react";
 import { getBrowserClient } from "@/lib/supabase/client";
 
+// sign in screen. the user enters an email and supabase emails a magic link.
+// after they click it they land on /auth/callback which creates the session.
+// this page is shown by the app shell whenever there is no signed in user.
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);

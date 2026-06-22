@@ -6,6 +6,9 @@ import { useConversations } from "@/lib/use-conversations";
 import { useShare } from "@/lib/use-share";
 import { ShareDialog } from "./share-dialog";
 
+// share button in the top bar. it only appears when the open chat has at least
+// one message. clicking it builds a share link for the current conversation and
+// opens the share dialog.
 export function ShareButton() {
   const pathname = usePathname();
   const conversations = useConversations();

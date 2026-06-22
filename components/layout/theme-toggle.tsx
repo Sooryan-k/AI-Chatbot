@@ -4,6 +4,9 @@ import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { useMounted } from "@/lib/use-mounted";
 
+// button that switches between dark and light mode using next themes. it reads
+// the mounted flag so the label and icon match the real theme only after
+// hydration, which avoids a server and client mismatch.
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();

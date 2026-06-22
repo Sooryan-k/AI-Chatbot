@@ -13,6 +13,9 @@ function ChatSkeleton() {
   );
 }
 
+// page for a single conversation at /c/<id>. it waits for the supabase fetch
+// to finish before mounting the chat so the thread starts with the right
+// messages. an unknown id simply starts an empty chat.
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
