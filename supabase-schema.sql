@@ -41,3 +41,27 @@ create index if not exists conversations_user_updated
 
 create index if not exists conversations_project
   on conversations (project_id);
+
+-- ── Shared chats ──────────────────────────────────────────────────────────────
+-- Read-only snapshots behind a short share link. Anyone with the link (even
+-- signed-out) can read; only the signed-in owner can create or delete.
+create table if not exists shared_chats (
+  id          text        primary key,
+  user_id     uuid        references auth.users not null,
+  payload     jsonb       not null,
+  created_at  bigint      not null
+);
+
+alter table shared_chats enable row level security;
+
+create policy "Anyone can read a shared chat"
+  on shared_chats for select
+  using (true);
+
+create policy "Users can create their own shares"
+  on shared_chats for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own shares"
+  on shared_chats for delete
+  using (auth.uid() = user_id);

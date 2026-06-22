@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { decodeShare, type SharePayload } from "@/lib/share";
+import { fetchShare, type SharePayload } from "@/lib/share";
 import { SharedView } from "@/components/share/shared-view";
 
 type State =
@@ -12,31 +13,28 @@ type State =
   | { status: "ready"; payload: SharePayload };
 
 export default function SharePage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
     let active = true;
-    const encoded = window.location.hash.replace(/^#/, "");
-    Promise.resolve()
-      .then(() => {
-        if (!encoded) throw new Error("missing");
-        return decodeShare(encoded);
-      })
+    fetchShare(id)
       .then((payload) => {
         if (active) setState({ status: "ready", payload });
       })
       .catch((err: unknown) => {
         if (!active) return;
         const message =
-          err instanceof Error && err.message === "missing"
-            ? "This link is missing its content."
-            : "This share link is invalid or has been corrupted.";
+          err instanceof Error && err.message === "not_found"
+            ? "This shared chat no longer exists."
+            : "This share link is invalid or has been removed.";
         setState({ status: "error", message });
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [id]);
 
   if (state.status === "loading") {
     return (

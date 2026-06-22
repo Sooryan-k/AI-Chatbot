@@ -1,15 +1,14 @@
 import type { ChatMessage } from "./types";
+import { getBrowserClient } from "./supabase/client";
 
 /**
- * Client-side share links — no backend / database.
+ * Share links backed by Supabase.
  *
- * A conversation (or a whole project) is serialized to JSON, gzip-compressed in
- * the browser, and base64url-encoded into the URL hash fragment. Anyone opening
- * `/share#<data>` reconstructs the read-only view entirely on their own device;
- * the data never touches our server (the hash isn't sent in HTTP requests).
- *
- * Trade-off: the whole conversation lives in the link, so very large chats make
- * long URLs. For typical text chats the compressed payload stays small.
+ * A conversation (or whole project) snapshot is stored once in the
+ * `shared_chats` table and the link carries only a short random id, e.g.
+ * `/share/aB3xK9mZ02`. Anyone with the link can read it (public SELECT via
+ * RLS); only the signed-in owner can create one. This keeps links short
+ * regardless of how long the conversation is.
  */
 
 export interface SharedChat {
@@ -28,62 +27,52 @@ export interface SharePayload {
   chats?: SharedChat[];
 }
 
-/* ---------------------------- base64url helpers ---------------------------- */
-
-function bytesToBase64Url(bytes: Uint8Array<ArrayBuffer>): string {
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+/** Short URL-safe random id (base62). 10 chars ≈ 8.4e17 combinations. */
+function shortId(len = 10): string {
+  const alphabet =
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  let out = "";
+  for (let i = 0; i < len; i++) out += alphabet[bytes[i] % alphabet.length];
+  return out;
 }
 
-function base64UrlToBytes(str: string): Uint8Array<ArrayBuffer> {
-  const b64 = str.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-/* ------------------------------ gzip helpers ------------------------------ */
-
-async function gzip(text: string): Promise<Uint8Array<ArrayBuffer>> {
-  const stream = new Blob([text])
-    .stream()
-    .pipeThrough(new CompressionStream("gzip"));
-  const buffer = await new Response(stream).arrayBuffer();
-  return new Uint8Array(buffer);
-}
-
-async function gunzip(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
-  const stream = new Blob([bytes])
-    .stream()
-    .pipeThrough(new DecompressionStream("gzip"));
-  return new Response(stream).text();
-}
-
-/* -------------------------------- encode / decode -------------------------- */
-
-export async function encodeShare(payload: SharePayload): Promise<string> {
-  const compressed = await gzip(JSON.stringify(payload));
-  return bytesToBase64Url(compressed);
-}
-
-export async function decodeShare(encoded: string): Promise<SharePayload> {
-  const json = await gunzip(base64UrlToBytes(encoded));
-  const parsed = JSON.parse(json) as SharePayload;
-  if (!parsed || parsed.v !== 1 || !parsed.kind) {
-    throw new Error("Unrecognized share link.");
-  }
-  return parsed;
-}
-
-/** Build the full shareable URL from a payload. */
+/** Store the snapshot and return its short shareable URL. */
 export async function buildShareUrl(payload: SharePayload): Promise<string> {
-  const encoded = await encodeShare(payload);
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}/share#${encoded}`;
+  const sb = getBrowserClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) throw new Error("You must be signed in to share.");
+
+  const id = shortId();
+  const { error } = await sb.from("shared_chats").insert({
+    id,
+    user_id: user.id,
+    payload,
+    created_at: Date.now(),
+  });
+  if (error) throw error;
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/share/${id}`;
+}
+
+/** Fetch a stored share snapshot by its short id. */
+export async function fetchShare(id: string): Promise<SharePayload> {
+  const sb = getBrowserClient();
+  const { data, error } = await sb
+    .from("shared_chats")
+    .select("payload")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("not_found");
+
+  const payload = data.payload as SharePayload;
+  if (!payload || payload.v !== 1 || !payload.kind) {
+    throw new Error("invalid");
+  }
+  return payload;
 }
