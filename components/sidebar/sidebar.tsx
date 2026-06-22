@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { FolderPlus, PanelLeftClose, Plus } from "lucide-react";
 import { useConversations } from "@/lib/use-conversations";
 import { useProjects } from "@/lib/use-projects";
-import { useUser } from "@/lib/use-user";
+import { useUser } from "@/providers/auth-provider";
 import { groupConversationsByDate, newId } from "@/lib/utils";
 import { ConversationItem } from "./conversation-item";
 import { ProjectItem } from "./project-item";

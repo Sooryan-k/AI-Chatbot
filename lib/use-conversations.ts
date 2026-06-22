@@ -89,17 +89,11 @@ export function useConversations(): Conversation[] {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-/** Non-reactive read of a single conversation. */
-export function getConversation(id: string): Conversation | undefined {
-  return (cache ?? []).find((c) => c.id === id);
-}
-
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
+// apply an optimistic change: sort by updatedAt desc to match the server
+// ordering, then notify subscribers once.
 function commitOptimistic(next: Conversation[]): void {
-  cache = next;
-  emit();
-  // Sort by updatedAt desc to match server ordering.
   cache = [...next].sort((a, b) => b.updatedAt - a.updatedAt);
   emit();
 }

@@ -15,7 +15,6 @@ import { newId } from "./utils";
 
 const EMPTY: Project[] = [];
 let cache: Project[] | null = null;
-let loaded = false;
 let loadPromise: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
@@ -34,9 +33,10 @@ function getServerSnapshot(): Project[] {
 async function load(): Promise<void> {
   try {
     cache = await fetchProjects();
-    loaded = true;
   } catch {
-    loaded = true;
+    // leave the cache as-is; the sidebar simply shows no projects until a
+    // reload succeeds. unlike conversations, a stale projects list cannot
+    // overwrite stored data.
   }
   emit();
 }
@@ -52,17 +52,13 @@ function subscribe(listener: () => void): () => void {
 /** Reset the module-level store (called on sign-out). */
 export function resetProjectStore(): void {
   cache = null;
-  loaded = false;
   loadPromise = null;
   emit();
 }
 
-export function useProjectsLoaded(): boolean {
-  return useSyncExternalStore(
-    subscribe,
-    () => loaded,
-    () => false,
-  );
+/** Refetch projects for the current user (e.g. after a user change). */
+export function reloadProjects(): void {
+  loadPromise = load();
 }
 
 export function useProjects(): Project[] {

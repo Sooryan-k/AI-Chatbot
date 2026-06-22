@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/sidebar/sidebar";
-import { useUser } from "@/lib/use-user";
+import { useUser } from "@/providers/auth-provider";
 import { TopBar } from "./top-bar";
 
 function FullScreenSpinner() {
