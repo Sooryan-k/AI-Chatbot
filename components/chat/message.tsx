@@ -49,9 +49,10 @@ export function Message({
   }
 
   return (
-    <div className="group flex gap-3">
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-        <Bot size={18} />
+    <div className="group flex gap-2 sm:gap-3">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 sm:h-8 sm:w-8 dark:bg-emerald-900/40 dark:text-emerald-300">
+        <Bot size={16} className="sm:hidden" />
+        <Bot size={18} className="hidden sm:block" />
       </div>
       <div className="min-w-0 flex-1">
         <Markdown content={text} />

@@ -172,9 +172,9 @@ button:disabled,
   padding-left: 1rem;
   color: var(--muted-foreground);
 }
-/* Tables: the wrapper scrolls horizontally; the table sizes to its content
-   (min 100%) so wide tables stay readable and swipeable on mobile rather than
-   cramming columns or breaking the page layout. */
+/* Tables: fill the available width and wrap text at word boundaries so they
+   stay compact on mobile. The wrapper provides the rounded frame and a
+   horizontal-scroll safety net for genuinely wide tables. */
 .markdown .table-scroll {
   max-width: 100%;
   overflow-x: auto;
@@ -183,8 +183,7 @@ button:disabled,
   border-radius: 0.5rem;
 }
 .markdown table {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
@@ -193,7 +192,17 @@ button:disabled,
   border: 1px solid var(--border);
   padding: 0.4rem 0.6rem;
   text-align: left;
-  white-space: nowrap;
+  /* Wrap between words (not mid-word) and only break a single long token
+     as a last resort — fixes the ugly "meanin g" splits. */
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+@media (max-width: 640px) {
+  .markdown th,
+  .markdown td {
+    padding: 0.3rem 0.45rem;
+    font-size: 0.82rem;
+  }
 }
 .markdown th {
   background: var(--muted);
