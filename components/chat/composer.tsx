@@ -69,9 +69,6 @@ export function Composer({
             </button>
           )}
         </div>
-        <p className="mt-2 text-center text-xs text-muted-foreground">
-          Powered by OpenRouter · Enter to send, Shift+Enter for a new line
-        </p>
       </div>
     </div>
   );

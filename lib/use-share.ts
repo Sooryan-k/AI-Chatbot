@@ -20,8 +20,8 @@ export function useShare() {
     setError("");
     try {
       setUrl(await buildShareUrl(payload));
-    } catch {
-      setError("Could not generate a share link.");
+    } catch (err) {
+      setError(extractMessage(err));
     } finally {
       setLoading(false);
     }
@@ -32,4 +32,13 @@ export function useShare() {
   }
 
   return { open, url, loading, error, share, close };
+}
+
+/** Pull a human-readable message out of an Error or a Supabase PostgrestError. */
+function extractMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object" && "message" in err) {
+    return String((err as { message: unknown }).message);
+  }
+  return "Could not generate a share link.";
 }
