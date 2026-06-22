@@ -1,67 +1,135 @@
-# EmeraldChat
+# ZooperChat
 
-A ChatGPT-style chat interface with a custom **emerald** theme, powered by
-**[OpenRouter](https://openrouter.ai)** (an OpenAI-compatible API, with free
-models). Built with Next.js (App Router), the Vercel AI SDK v6, and Tailwind
-CSS v4. Deploys to Vercel as-is.
+A ChatGPT-style AI chat app with a custom **emerald** theme. Chats are saved to
+the cloud (Supabase PostgreSQL) behind email magic-link sign-in, so your history
+follows you across devices. Built with Next.js 16 (App Router), the Vercel AI
+SDK v6, Tailwind CSS v4, and an OpenAI-compatible model provider (OpenRouter by
+default). Deploys to Vercel.
 
 ## Features
 
-- 💬 ChatGPT-style layout — collapsible sidebar, chat area, and composer
-- 🌊 **Streaming** responses, token-by-token (with a Stop button)
-- 🗂️ **Conversation history** in the sidebar, grouped by date, with rename & delete
-- 📝 **Markdown** rendering with syntax-highlighted code blocks + copy buttons
-- 🌗 **Dark / light** mode (emerald palette in both)
-- 💾 History persists in your browser via **localStorage** (no database)
-- ☁️ Provider is env-driven — same code runs locally and on Vercel
+- ChatGPT-style layout: sidebar, chat area, composer, responsive on phone to desktop
+- Streaming responses, token by token, with a Stop button
+- Email magic-link auth (Supabase) so chats sync across devices
+- Cloud storage in Supabase PostgreSQL with Row-Level Security (each user sees only their own data)
+- Projects to group related chats, plus rename and delete
+- Short share links: a read-only snapshot anyone can open, no account needed
+- Markdown rendering with syntax-highlighted code blocks and copy buttons
+- Dark and light mode (emerald palette in both)
 
-## Configuration
+## Architecture at a glance
 
-Settings live in `.env.local` (already created). The provider is OpenRouter:
+The browser talks to two backends: the model provider (for streaming replies)
+and Supabase (for auth + storage). The Next.js server is thin.
+
+```
+Browser (React client)
+  ├─ POST /api/chat ─────────────► model provider (OpenRouter)   streaming reply
+  ├─ Supabase JS (anon key) ─────► Supabase Postgres              chats, projects, shares
+  └─ magic-link sign-in ─────────► Supabase Auth                  session cookie
+```
+
+- **Auth gate:** `proxy.ts` (Next 16 renamed `middleware.ts`) runs on every
+  request, refreshes the session, and redirects signed-out users to
+  `/auth/login`. `components/layout/app-shell.tsx` does the same check on the
+  client so the UI never renders for a signed-out user.
+- **Data:** the client reads/writes Supabase directly using the public anon key.
+  Row-Level Security (defined in `supabase-schema.sql`) is what actually keeps
+  each user's rows private, so the anon key is safe to ship to the browser.
+- **Chat streaming:** `app/api/chat/route.ts` forwards the message history to the
+  provider and streams the reply back. It stores nothing; the client saves
+  messages to Supabase.
+- **Share links:** a snapshot is stored once in the `shared_chats` table and the
+  link carries only a short id (`/share/<id>`), readable by anyone.
+
+## Project structure
+
+```
+app/
+  api/chat/route.ts        streaming chat endpoint (model provider)
+  api/health/route.ts      reports whether the provider is reachable
+  auth/login/page.tsx      magic-link sign-in screen
+  auth/callback/route.ts   exchanges the magic-link code for a session
+  auth/logout/route.ts     signs out
+  c/[id]/page.tsx          a single conversation
+  share/[id]/page.tsx      public read-only shared view
+  layout.tsx               fonts, theme provider, app shell
+  page.tsx                 redirects to a fresh chat id
+lib/
+  supabase/client.ts       browser Supabase client
+  supabase/server.ts       server Supabase client (route handlers, proxy)
+  storage.ts               Supabase CRUD for chats and projects
+  use-conversations.ts     reactive chats store (optimistic + Supabase)
+  use-projects.ts          reactive projects store
+  use-user.ts              current auth user + loading state
+  share.ts                 store/fetch share snapshots, build short links
+  provider.ts              configures the model from env
+components/
+  layout/                  app shell, top bar, theme toggle
+  sidebar/                 sidebar, project + chat items, account menu
+  chat/                    chat container, message list, message, composer, markdown
+  share/                   share button, dialog, shared view
+proxy.ts                   auth proxy (runs before every request)
+supabase-schema.sql        tables + Row-Level Security to run in Supabase
+```
+
+## Setup
+
+### 1. Create the Supabase tables
+
+In your Supabase project, open **SQL Editor** and run the contents of
+[`supabase-schema.sql`](supabase-schema.sql). This creates the `projects`,
+`conversations`, and `shared_chats` tables with Row-Level Security.
+
+### 2. Configure auth redirect URLs
+
+In Supabase, go to **Authentication → URL Configuration** and add your callback
+URLs:
+
+```
+http://localhost:3000/auth/callback
+https://your-app.vercel.app/auth/callback
+```
+
+### 3. Custom email sender (recommended)
+
+Supabase's built-in mailer is rate-limited to a few emails per hour. To send
+magic links reliably, add custom SMTP under **Authentication → SMTP Settings**
+(for example Gmail SMTP, or Resend with a verified domain).
+
+### 4. Environment variables
+
+Settings live in `.env.local` (gitignored). You need the model provider and
+Supabase values:
 
 ```bash
+# Model provider (OpenRouter, or any OpenAI-compatible API)
 AI_BASE_URL=https://openrouter.ai/api/v1
 AI_MODEL=cohere/north-mini-code:free   # any model your key can use
 AI_API_KEY=sk-or-v1-...                # from https://openrouter.ai/keys
+
+# Supabase (Project Settings → API). The anon key is safe in the browser.
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 ```
-
-Get a key (and browse free models) at https://openrouter.ai. Change `AI_MODEL`
-to any model your account can access. The badge in the top bar shows a green
-dot when the provider is reachable, red when it isn't.
-
-> Works with any OpenAI-compatible API — point `AI_BASE_URL`/`AI_API_KEY` at
-> Groq, Together, etc., if you prefer.
 
 ## Run
 
 ```bash
+npm install
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000. You will be sent to the sign-in page; enter your
+email, click the magic link, and your chats will save to Supabase.
 
-## Deploying to Vercel
+## Deploy to Vercel
 
 1. Push this repo to GitHub and import it at https://vercel.com.
-2. In the Vercel project's **Environment Variables**, add the same three vars:
-   ```bash
-   AI_BASE_URL = https://openrouter.ai/api/v1
-   AI_MODEL    = cohere/north-mini-code:free
-   AI_API_KEY  = sk-or-v1-...
-   ```
-3. Deploy. `.env.local` is gitignored, so your key is set only in Vercel.
-
-## How it works
-
-- `app/api/chat/route.ts` — the only chat endpoint. Streams responses via the
-  AI SDK (`streamText` → `toUIMessageStreamResponse`). Stateless.
-- `lib/provider.ts` — configures the OpenRouter (OpenAI-compatible) model from
-  env. Swap providers by changing env, not code.
-- `app/api/health/route.ts` — reports whether the provider is reachable.
-- `lib/use-conversations.ts` + `lib/storage.ts` — conversation persistence
-  (localStorage), behind a small interface so it can be swapped for a database.
-- `components/chat/*`, `components/sidebar/*`, `components/layout/*` — the UI.
-- Theme tokens are CSS variables in `app/globals.css`.
+2. In the Vercel project's **Environment Variables**, add the same five vars
+   above (`AI_*` and `NEXT_PUBLIC_SUPABASE_*`).
+3. Add your production callback URL in Supabase (step 2 above).
+4. Deploy. `.env.local` is gitignored, so secrets live only in Vercel.
 
 ## Build
 
