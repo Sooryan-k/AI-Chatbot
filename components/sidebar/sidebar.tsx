@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FolderPlus, LogOut, PanelLeftClose, Plus } from "lucide-react";
+import { FolderPlus, PanelLeftClose, Plus } from "lucide-react";
 import { useConversations } from "@/lib/use-conversations";
 import { useProjects } from "@/lib/use-projects";
 import { useUser } from "@/lib/use-user";
@@ -11,12 +11,12 @@ import { groupConversationsByDate, newId } from "@/lib/utils";
 import { ConversationItem } from "./conversation-item";
 import { ProjectItem } from "./project-item";
 import { NewProjectDialog } from "./new-project-dialog";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { AccountMenu } from "./account-menu";
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const conversations = useConversations();
   const projects = useProjects();
-  const user = useUser();
+  const { user } = useUser();
   const pathname = usePathname();
   const router = useRouter();
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -158,24 +158,8 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         </div>
       </nav>
 
-      <div className="border-t border-border p-2 space-y-1">
-        <ThemeToggle />
-        {user && (
-          <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
-            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-              {user.email}
-            </span>
-            <form action="/auth/logout" method="POST">
-              <button
-                type="submit"
-                title="Sign out"
-                className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
-              >
-                <LogOut size={15} />
-              </button>
-            </form>
-          </div>
-        )}
+      <div className="border-t border-border p-2">
+        {user && <AccountMenu user={user} />}
       </div>
 
       <NewProjectDialog

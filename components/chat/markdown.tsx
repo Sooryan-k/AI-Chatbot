@@ -32,6 +32,13 @@ const components: Components = {
       {children}
     </a>
   ),
+  // Wrap tables so wide ones scroll horizontally within the message instead
+  // of overflowing the viewport on mobile.
+  table: ({ children }) => (
+    <div className="table-scroll">
+      <table>{children}</table>
+    </div>
+  ),
 };
 
 function MarkdownImpl({ content }: { content: string }) {

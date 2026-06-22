@@ -172,18 +172,28 @@ button:disabled,
   padding-left: 1rem;
   color: var(--muted-foreground);
 }
+/* Tables: the wrapper scrolls horizontally; the table sizes to its content
+   (min 100%) so wide tables stay readable and swipeable on mobile rather than
+   cramming columns or breaking the page layout. */
+.markdown .table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
 .markdown table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
-  display: block;
-  overflow-x: auto;
 }
 .markdown th,
 .markdown td {
   border: 1px solid var(--border);
   padding: 0.4rem 0.6rem;
   text-align: left;
+  white-space: nowrap;
 }
 .markdown th {
   background: var(--muted);

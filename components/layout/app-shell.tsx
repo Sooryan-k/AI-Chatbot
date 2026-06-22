@@ -1,21 +1,51 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/sidebar/sidebar";
+import { useUser } from "@/lib/use-user";
 import { TopBar } from "./top-bar";
+
+function FullScreenSpinner() {
+  return (
+    <div className="flex h-dvh w-full items-center justify-center bg-background">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+    </div>
+  );
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading } = useUser();
 
-  // The shared read-only view is standalone — no sidebar or top bar.
-  if (pathname?.startsWith("/share")) {
+  // Auth (/auth/*) and public share (/share/*) routes render standalone —
+  // no sidebar, no top bar, and no auth gate.
+  const isStandalone =
+    pathname?.startsWith("/share") || pathname?.startsWith("/auth");
+
+  // Client-side auth gate (defense-in-depth alongside proxy.ts). Without a
+  // signed-in user the app shell — and therefore project/chat creation — is
+  // never rendered; we redirect to the login page instead.
+  useEffect(() => {
+    if (!isStandalone && !loading && !user) {
+      router.replace("/auth/login");
+    }
+  }, [isStandalone, loading, user, router]);
+
+  if (isStandalone) {
     return (
       <div className="h-dvh w-full overflow-y-auto bg-background text-foreground">
         {children}
       </div>
     );
+  }
+
+  // While confirming the session (or while redirecting an unauthenticated
+  // visitor) show a spinner rather than a flash of the empty app.
+  if (loading || !user) {
+    return <FullScreenSpinner />;
   }
 
   return (
