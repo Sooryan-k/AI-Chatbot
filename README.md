@@ -29,16 +29,18 @@ Browser (React client)
   └─ magic-link sign-in ─────────► Supabase Auth                  session cookie
 ```
 
-- **Auth gate:** `proxy.ts` (Next 16 renamed `middleware.ts`) runs on every
-  request, refreshes the session, and redirects signed-out users to
-  `/auth/login`. `components/layout/app-shell.tsx` does the same check on the
-  client so the UI never renders for a signed-out user.
+- **Auth gate:** `proxy.ts` (Next 16 renamed `middleware.ts`) runs on page
+  requests, refreshes the session, and redirects signed-out users to
+  `/auth/login`. `providers/auth-provider.tsx` holds the client auth state and
+  `components/layout/app-shell.tsx` does the same check on the client, so the UI
+  never renders for a signed-out user. API routes are excluded from the proxy
+  and authenticate themselves.
 - **Data:** the client reads/writes Supabase directly using the public anon key.
   Row-Level Security (defined in `supabase-schema.sql`) is what actually keeps
   each user's rows private, so the anon key is safe to ship to the browser.
-- **Chat streaming:** `app/api/chat/route.ts` forwards the message history to the
-  provider and streams the reply back. It stores nothing; the client saves
-  messages to Supabase.
+- **Chat streaming:** `app/api/chat/route.ts` requires a signed-in user, then
+  forwards the message history to the provider and streams the reply back. It
+  stores nothing; the client saves messages to Supabase.
 - **Share links:** a snapshot is stored once in the `shared_chats` table and the
   link carries only a short id (`/share/<id>`), readable by anyone.
 
@@ -52,7 +54,7 @@ app/
   auth/logout/route.ts     signs out
   c/[id]/page.tsx          a single conversation
   share/[id]/page.tsx      public read-only shared view
-  layout.tsx               fonts, theme provider, app shell
+  layout.tsx               fonts, theme + auth providers, app shell
   page.tsx                 redirects to a fresh chat id
 lib/
   supabase/client.ts       browser Supabase client
@@ -60,15 +62,17 @@ lib/
   storage.ts               Supabase CRUD for chats and projects
   use-conversations.ts     reactive chats store (optimistic + Supabase)
   use-projects.ts          reactive projects store
-  use-user.ts              current auth user + loading state
   share.ts                 store/fetch share snapshots, build short links
   provider.ts              configures the model from env
+providers/
+  auth-provider.tsx        single source of auth state + per-user store refresh
+  theme-provider.tsx       dark / light theme provider
 components/
   layout/                  app shell, top bar, theme toggle
   sidebar/                 sidebar, project + chat items, account menu
   chat/                    chat container, message list, message, composer, markdown
   share/                   share button, dialog, shared view
-proxy.ts                   auth proxy (runs before every request)
+proxy.ts                   auth proxy (runs before page requests)
 supabase-schema.sql        tables + Row-Level Security to run in Supabase
 ```
 
