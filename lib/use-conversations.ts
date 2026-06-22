@@ -17,8 +17,13 @@ import { deriveTitle, newId } from "./utils";
 
 const EMPTY: Conversation[] = [];
 
+// load status matters: "error" must stay distinct from "ready" with an empty
+// list, otherwise a failed fetch would look like "this user has no chats" and a
+// later save could overwrite an existing row with only the new message.
+export type LoadStatus = "loading" | "ready" | "error";
+
 let cache: Conversation[] | null = null;
-let loaded = false;
+let status: LoadStatus = "loading";
 let loadPromise: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
@@ -37,9 +42,11 @@ function getServerSnapshot(): Conversation[] {
 async function load(): Promise<void> {
   try {
     cache = await fetchConversations();
-    loaded = true;
+    status = "ready";
   } catch {
-    loaded = true; // don't retry forever
+    // keep cache as-is and report the failure so callers can show a retry
+    // instead of treating it as an empty account.
+    status = "error";
   }
   emit();
 }
@@ -56,17 +63,24 @@ function subscribe(listener: () => void): () => void {
 /** Reset the module-level store (called on sign-out). */
 export function resetConversationStore(): void {
   cache = null;
-  loaded = false;
+  status = "loading";
   loadPromise = null;
   emit();
 }
 
-/** True once the initial Supabase fetch has completed. */
-export function useConversationsLoaded(): boolean {
+/** Retry the initial fetch after a failure. */
+export function reloadConversations(): void {
+  status = "loading";
+  emit();
+  loadPromise = load();
+}
+
+/** Reactive load status of the initial Supabase fetch. */
+export function useConversationsStatus(): LoadStatus {
   return useSyncExternalStore(
     subscribe,
-    () => loaded,
-    () => false,
+    () => status,
+    () => "loading",
   );
 }
 

@@ -1,19 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/**
- * Auth proxy — runs before every non-static request.
- * Unauthenticated users are redirected to /auth/login, except for:
- *   - /auth/* (login / callback)
- *   - /share/* (public read-only share links)
- *   - /api/*  (API routes handle their own auth as needed)
- *
- * Also refreshes the Supabase session cookie on every request so it doesn't
- * expire mid-session.
- *
- * NOTE: In Next.js 16, "middleware.ts" is renamed to "proxy.ts" and the
- * exported function must be named `proxy` (not `middleware`).
- */
+// auth proxy that runs before every non static, non api request. it refreshes
+// the supabase session cookie and redirects signed out users to /auth/login,
+// except on the auth and share routes which are public. api routes are excluded
+// from the matcher and do their own auth, so they are not redirected to html.
+//
+// note: in next 16 the middleware.ts file is renamed to proxy.ts and the
+// exported function must be named proxy, not middleware.
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -46,10 +40,10 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // auth and share pages are reachable while signed out. api is not matched
+  // here at all (see the matcher) and authenticates itself.
   const isPublic =
-    pathname.startsWith("/auth") ||
-    pathname.startsWith("/share") ||
-    pathname.startsWith("/api");
+    pathname.startsWith("/auth") || pathname.startsWith("/share");
 
   if (!user && !isPublic) {
     const loginUrl = request.nextUrl.clone();
@@ -62,7 +56,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Run on all paths except Next.js internals and static assets.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // run on all paths except api routes, next.js internals and static assets.
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

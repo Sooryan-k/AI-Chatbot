@@ -2,8 +2,12 @@
 // browser, forwards it to the configured openai compatible provider and streams
 // the reply back token by token. it stores nothing itself; the client persists
 // chats to supabase. runs on the node runtime so the provider sdk works.
+//
+// this endpoint spends the provider api key, so it requires a signed-in user.
+// the proxy does not cover /api, so the auth check lives here.
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { getModel, MODEL } from "@/lib/provider";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -18,6 +22,18 @@ const CONNECTION_HINT =
   "AI_BASE_URL is correct, and the model name exists.";
 
 export async function POST(req: Request) {
+  // require a signed-in user before spending the provider api key.
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return Response.json(
+      { error: "You must be signed in to chat." },
+      { status: 401 },
+    );
+  }
+
   let body: { messages?: UIMessage[]; model?: string };
   try {
     body = await req.json();
