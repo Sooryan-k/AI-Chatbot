@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ZooperChat — AI Chat",
-  description: "A ChatGPT-style chat interface powered by OpenRouter.",
+  title: "ZooperChat",
+  description: "A ChatGPT-style AI chat app with cloud-synced history.",
 };
 
 export const viewport: Viewport = {

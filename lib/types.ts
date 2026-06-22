@@ -1,9 +1,10 @@
 import type { UIMessage } from "ai";
 
-/** A single chat message — we reuse the AI SDK's UIMessage shape (with `parts`). */
+// a single chat message. we reuse the ai sdk UIMessage shape, which carries the
+// message parts, so messages round trip cleanly through the chat hook.
 export type ChatMessage = UIMessage;
 
-/** A full conversation as persisted in localStorage. */
+// a full conversation, stored as one row (messages as jsonb) in supabase.
 export interface Conversation {
   id: string;
   title: string;

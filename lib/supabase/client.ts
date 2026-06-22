@@ -5,7 +5,8 @@ import { createBrowserClient } from "@supabase/ssr";
 
 let client: ReturnType<typeof createBrowserClient> | null = null;
 
-/** Singleton browser Supabase client — safe to call from client components and hooks. */
+// returns the shared browser supabase client, creating it on first use. safe to
+// call from any client component or hook.
 export function getBrowserClient() {
   if (!client) {
     client = createBrowserClient(

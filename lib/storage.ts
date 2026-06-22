@@ -1,8 +1,7 @@
-/**
- * Supabase persistence layer — replaces the old localStorage implementation.
- * All functions run on the browser side using the singleton browser client.
- * Row-Level Security ensures each user only reads/writes their own data.
- */
+// supabase persistence for chats and projects. every function runs on the
+// browser using the shared browser client. row level security is what keeps a
+// user limited to their own rows, so these queries never filter by user_id
+// themselves except on insert, where the policy requires it.
 import type { Conversation, Project } from "./types";
 import { getBrowserClient } from "./supabase/client";
 

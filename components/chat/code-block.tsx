@@ -40,7 +40,7 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      /* clipboard unavailable — ignore */
+      // clipboard unavailable, ignore
     }
   }
 

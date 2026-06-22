@@ -59,7 +59,7 @@ export default function LoginPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               We sent a magic link to <strong>{email}</strong>.
               <br />
-              Click it to sign in — no password needed.
+              Click it to sign in, no password needed.
             </p>
           </div>
         ) : (

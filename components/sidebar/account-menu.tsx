@@ -5,8 +5,8 @@ import type { User } from "@supabase/supabase-js";
 import { ChevronsUpDown, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
-/** Account area pinned to the bottom of the sidebar — avatar + email that
- *  opens an upward popover with theme toggle and sign out. */
+// account area pinned to the bottom of the sidebar. shows an avatar and email
+// and opens an upward popover with the theme toggle and a sign out action.
 export function AccountMenu({ user }: { user: User }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

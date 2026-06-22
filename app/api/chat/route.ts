@@ -49,7 +49,7 @@ export async function POST(req: Request) {
           return `Model "${model || MODEL}" isn't available. Check the AI_MODEL value.`;
         }
         if (/unauthorized|invalid api key|401|forbidden|403|credit/i.test(message)) {
-          return "The provider rejected the request — check that AI_API_KEY is valid (and has free credits for this model).";
+          return "The provider rejected the request. Check that AI_API_KEY is valid (and has free credits for this model).";
         }
         if (
           /cannot connect|connect to api|fetch failed|econnrefused|enotfound|terminated|failed after/i.test(

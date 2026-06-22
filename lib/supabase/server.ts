@@ -21,7 +21,9 @@ export async function createSupabaseServerClient() {
               cookieStore.set(name, value, options);
             }
           } catch {
-            // Called during SSR render — cookies can't be set; ignore.
+            // called during a server component render where cookies cannot be
+            // set. the proxy refreshes the session instead, so this is safe to
+            // ignore.
           }
         },
       },

@@ -48,7 +48,7 @@ export function ShareDialog({
       <div className="mb-4 flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
         <Globe size={14} className="shrink-0" />
         <span>
-          Anyone with the link can view this {kind} — no account needed.
+          Anyone with the link can view this {kind}. No account needed.
         </span>
       </div>
 

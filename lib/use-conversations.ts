@@ -9,14 +9,11 @@ import {
 } from "./storage";
 import { deriveTitle, newId } from "./utils";
 
-/**
- * Supabase-backed external store for conversations.
- * Same public API as the old localStorage version — all UI components unchanged.
- *
- * Mutations are optimistic: UI updates instantly while the async write happens
- * in the background. On error we log and leave the cache as-is (the next load
- * will reconcile with the server).
- */
+// reactive store for conversations, backed by supabase. a module level cache is
+// shared across components through useSyncExternalStore. mutations are
+// optimistic: the cache updates instantly and the supabase write happens in the
+// background. on error we log and keep the cache, and the next load reconciles
+// with the server. resetConversationStore clears it on sign out.
 
 const EMPTY: Conversation[] = [];
 

@@ -47,7 +47,6 @@ Browser (React client)
 ```
 app/
   api/chat/route.ts        streaming chat endpoint (model provider)
-  api/health/route.ts      reports whether the provider is reachable
   auth/login/page.tsx      magic-link sign-in screen
   auth/callback/route.ts   exchanges the magic-link code for a session
   auth/logout/route.ts     signs out

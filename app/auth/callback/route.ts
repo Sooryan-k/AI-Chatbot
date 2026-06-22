@@ -19,6 +19,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Something went wrong — send them back to login with an error hint.
+  // something went wrong, send them back to login with an error hint.
   return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`);
 }
