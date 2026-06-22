@@ -1,3 +1,6 @@
+// supabase client for the server. it bridges supabase auth to next request
+// cookies so route handlers and the proxy can read and refresh the session.
+// note that cookies() is async in next 16, so this helper is async too.
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 

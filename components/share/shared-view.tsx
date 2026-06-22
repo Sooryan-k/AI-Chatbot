@@ -16,14 +16,16 @@ function ChatThread({ messages }: { messages: ChatMessage[] }) {
   );
 }
 
+// read only public view rendered at /share/<id>. it has its own header instead
+// of the app sidebar and scales text and the call to action for small screens.
 export function SharedView({ payload }: { payload: SharePayload }) {
   return (
     <div className="min-h-dvh">
-      {/* Header */}
+      {/* sticky brand header with a link back into the app */}
       <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="text-lg font-semibold">
+            <span className="text-base font-semibold sm:text-lg">
               Zooper
               <span className="text-emerald-600 dark:text-emerald-400">Chat</span>
             </span>
@@ -33,17 +35,20 @@ export function SharedView({ payload }: { payload: SharePayload }) {
           </div>
           <Link
             href="/"
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 sm:px-3 sm:text-sm"
           >
-            Start your own chat
+            <span className="hidden sm:inline">Start your own chat</span>
+            <span className="sm:hidden">New chat</span>
             <ArrowRight size={15} />
           </Link>
         </div>
       </header>
 
-      {/* Content */}
-      <main className="mx-auto w-full max-w-3xl px-4 py-8">
-        <h1 className="mb-6 text-2xl font-semibold">{payload.title}</h1>
+      {/* shared conversation content */}
+      <main className="mx-auto w-full max-w-3xl px-3 py-6 sm:px-4 sm:py-8">
+        <h1 className="mb-5 text-xl font-semibold sm:mb-6 sm:text-2xl">
+          {payload.title}
+        </h1>
 
         {payload.kind === "chat" && payload.messages ? (
           <ChatThread messages={payload.messages} />

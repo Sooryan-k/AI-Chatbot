@@ -6,6 +6,9 @@ import { Menu, SquarePen } from "lucide-react";
 import { newId } from "@/lib/utils";
 import { ShareButton } from "@/components/share/share-button";
 
+// top bar shown above the chat. the menu button, brand and quick new chat
+// button only appear below the lg breakpoint, where the sidebar is hidden
+// behind a drawer. the share button stays visible on every size.
 export function TopBar({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
 

@@ -35,15 +35,15 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        {/* Brand */}
+        {/* brand mark and a short pitch, sized down a touch on phones */}
         <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
-            <Sparkles className="size-7" />
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 sm:h-14 sm:w-14 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <Sparkles className="size-6 sm:size-7" />
           </div>
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-xl font-semibold sm:text-2xl">
             Zooper<span className="text-emerald-600 dark:text-emerald-400">Chat</span>
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
             Sign in to save your chats across devices
           </p>
         </div>

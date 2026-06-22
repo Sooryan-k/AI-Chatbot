@@ -29,9 +29,10 @@ export function Modal({
 
   if (!open || typeof document === "undefined") return null;
 
-  // Render into <body> via a portal so the modal escapes any ancestor stacking
-  // context / containing block (e.g. the `backdrop-blur` top bar) and truly sits
-  // on top of the whole UI.
+  // render into <body> through a portal so the modal escapes any ancestor
+  // stacking context or containing block, for example the backdrop blur top
+  // bar, and truly sits on top of the whole ui. it is full width on phones and
+  // capped at a comfortable width on larger screens.
   return createPortal(
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
       <div
@@ -39,10 +40,10 @@ export function Modal({
         onClick={onClose}
         aria-hidden
       />
-      <div className="relative w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+      <div className="relative w-full max-w-md rounded-2xl border border-border bg-card p-4 shadow-2xl sm:p-5">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold">{title}</h2>
+            <h2 className="text-base font-semibold sm:text-lg">{title}</h2>
             {description && (
               <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
             )}

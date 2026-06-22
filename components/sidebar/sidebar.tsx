@@ -13,6 +13,9 @@ import { ProjectItem } from "./project-item";
 import { NewProjectDialog } from "./new-project-dialog";
 import { AccountMenu } from "./account-menu";
 
+// left navigation panel. it is a fixed width column on desktop and slides in
+// as a drawer on mobile (onClose closes that drawer). it lists projects and
+// date grouped chats and pins the account menu to the bottom.
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const conversations = useConversations();
   const projects = useProjects();

@@ -35,9 +35,12 @@ export function Composer({
 
   const canSend = value.trim().length > 0;
 
+  // composer pinned to the bottom of the chat. the textarea stays at 16px on
+  // phones (text-base) so ios safari does not zoom in on focus, and relaxes to
+  // a slightly smaller size on larger screens.
   return (
     <div className="shrink-0 border-t border-border bg-background/80 backdrop-blur">
-      <div className="mx-auto w-full max-w-3xl px-4 py-3">
+      <div className="mx-auto w-full max-w-3xl px-3 py-3 sm:px-4">
         <div className="flex items-end gap-2 rounded-2xl border border-border bg-card px-3 py-2 shadow-sm transition-colors focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20">
           <textarea
             ref={ref}
@@ -46,7 +49,7 @@ export function Composer({
             onKeyDown={onKeyDown}
             rows={1}
             placeholder="Message ZooperChat…"
-            className="max-h-50 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+            className="max-h-50 flex-1 resize-none bg-transparent py-1.5 text-base outline-none placeholder:text-muted-foreground sm:text-sm"
           />
           {isBusy ? (
             <button

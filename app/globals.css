@@ -117,16 +117,25 @@ button:disabled,
   border-radius: 9999px;
 }
 
-/* Neutralize highlight.js theme padding/background — our CodeBlock supplies the chrome. */
+/* neutralize highlight.js theme padding and background so our code block */
+/* supplies the chrome. */
 .hljs {
   background: transparent !important;
   padding: 0 !important;
 }
 
-/* ------------------------- Markdown typography ------------------------- */
+/* markdown typography for assistant answers. */
+/* base size is smaller on phones and scales up from the sm breakpoint so long */
+/* answers stay readable on every device. */
 .markdown {
   line-height: 1.7;
   word-break: break-word;
+  font-size: 0.9rem;
+}
+@media (min-width: 640px) {
+  .markdown {
+    font-size: 1rem;
+  }
 }
 .markdown > * + * {
   margin-top: 0.85rem;
@@ -138,14 +147,26 @@ button:disabled,
   font-weight: 600;
   line-height: 1.3;
 }
+/* headings step up one notch on larger screens. */
 .markdown h1 {
-  font-size: 1.4rem;
-}
-.markdown h2 {
   font-size: 1.2rem;
 }
+.markdown h2 {
+  font-size: 1.1rem;
+}
 .markdown h3 {
-  font-size: 1.05rem;
+  font-size: 1rem;
+}
+@media (min-width: 640px) {
+  .markdown h1 {
+    font-size: 1.4rem;
+  }
+  .markdown h2 {
+    font-size: 1.2rem;
+  }
+  .markdown h3 {
+    font-size: 1.05rem;
+  }
 }
 .markdown ul {
   list-style: disc;
@@ -172,9 +193,9 @@ button:disabled,
   padding-left: 1rem;
   color: var(--muted-foreground);
 }
-/* Tables: fill the available width and wrap text at word boundaries so they
-   stay compact on mobile. The wrapper provides the rounded frame and a
-   horizontal-scroll safety net for genuinely wide tables. */
+/* tables fill the available width and wrap text at word boundaries so they */
+/* stay compact on mobile. the wrapper gives the rounded frame and a */
+/* horizontal scroll safety net for genuinely wide tables. */
 .markdown .table-scroll {
   max-width: 100%;
   overflow-x: auto;
@@ -192,8 +213,8 @@ button:disabled,
   border: 1px solid var(--border);
   padding: 0.4rem 0.6rem;
   text-align: left;
-  /* Wrap between words (not mid-word) and only break a single long token
-     as a last resort — fixes the ugly "meanin g" splits. */
+  /* wrap between words, not mid word, and only break a single long token */
+  /* as a last resort. this fixes the ugly "meanin g" splits. */
   word-break: normal;
   overflow-wrap: break-word;
 }

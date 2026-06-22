@@ -38,16 +38,20 @@ export function Message({
 }) {
   const text = getMessageText(message);
 
+  // user messages sit on the right in an emerald bubble. text scales up a
+  // step from phones to larger screens.
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap wrap-break-word rounded-2xl rounded-br-md bg-emerald-600 px-4 py-2.5 text-[0.95rem] text-white shadow-sm">
+        <div className="max-w-[85%] whitespace-pre-wrap wrap-break-word rounded-2xl rounded-br-md bg-emerald-600 px-3.5 py-2.5 text-sm text-white shadow-sm sm:px-4 sm:text-base">
           {text}
         </div>
       </div>
     );
   }
 
+  // assistant messages span the full column width with an avatar on the left
+  // and markdown rendered content. the avatar shrinks slightly on phones.
   return (
     <div className="group flex gap-2 sm:gap-3">
       <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 sm:h-8 sm:w-8 dark:bg-emerald-900/40 dark:text-emerald-300">
