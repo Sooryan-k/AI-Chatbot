@@ -19,19 +19,27 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const supabase = getBrowserClient();
-    const { error: sbError } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: `${location.origin}/auth/callback`,
-      },
-    });
-
-    setLoading(false);
-    if (sbError) {
-      setError(sbError.message);
-    } else {
-      setSent(true);
+    try {
+      const supabase = getBrowserClient();
+      const { error: sbError } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: `${location.origin}/auth/callback`,
+        },
+      });
+      if (sbError) {
+        setError(sbError.message);
+      } else {
+        setSent(true);
+      }
+    } catch {
+      // network-level failure (offline, blocked by an extension, etc.) throws
+      // instead of returning an error; show a friendly message, not a crash.
+      setError(
+        "Couldn't reach the server. Check your connection (or disable any ad/privacy blocker) and try again.",
+      );
+    } finally {
+      setLoading(false);
     }
   }
 
