@@ -20,10 +20,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { user, loading } = useUser();
 
-  // auth (/auth/*) and public share (/share/*) routes render standalone, with
-  // no sidebar, no top bar, and no auth gate.
+  // auth (/auth/*), public share (/share/*) and live room (/room/*) routes
+  // render standalone, with no sidebar or top bar. auth routes also skip the
+  // gate; share and room are still protected by proxy.ts and their own checks.
   const isStandalone =
-    pathname?.startsWith("/share") || pathname?.startsWith("/auth");
+    pathname?.startsWith("/share") ||
+    pathname?.startsWith("/auth") ||
+    pathname?.startsWith("/room");
 
   // client side auth gate, as defense in depth alongside proxy.ts. without a
   // signed in user the app shell, and therefore project and chat creation, is

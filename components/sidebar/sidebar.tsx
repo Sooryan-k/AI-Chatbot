@@ -12,6 +12,7 @@ import { ConversationItem } from "./conversation-item";
 import { ProjectItem } from "./project-item";
 import { NewProjectDialog } from "./new-project-dialog";
 import { AccountMenu } from "./account-menu";
+import { StartSessionButton } from "@/components/room/start-session-button";
 
 // left navigation panel. it is a fixed width column on desktop and slides in
 // as a drawer on mobile (onClose closes that drawer). it lists projects and
@@ -69,8 +70,8 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      {/* New Chat button */}
-      <div className="px-3 pb-2">
+      {/* New Chat + live session buttons */}
+      <div className="space-y-2 px-3 pb-2">
         <button
           type="button"
           onClick={newChat}
@@ -79,6 +80,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           <Plus size={16} />
           New chat
         </button>
+        <StartSessionButton onNavigate={onClose} />
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 pb-2">

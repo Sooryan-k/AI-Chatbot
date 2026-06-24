@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUp, Square } from "lucide-react";
 
 export function Composer({
@@ -9,12 +9,15 @@ export function Composer({
   onSend,
   onStop,
   isBusy,
+  leftAccessory,
 }: {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
   onStop: () => void;
   isBusy: boolean;
+  // optional controls rendered to the left of the textarea (e.g. voice buttons).
+  leftAccessory?: ReactNode;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -42,6 +45,7 @@ export function Composer({
     <div className="shrink-0 border-t border-border bg-background/80 backdrop-blur">
       <div className="mx-auto w-full max-w-3xl px-3 py-3 sm:px-4">
         <div className="flex items-end gap-2 rounded-2xl border border-border bg-card px-3 py-2 shadow-sm transition-colors focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20">
+          {leftAccessory}
           <textarea
             ref={ref}
             value={value}

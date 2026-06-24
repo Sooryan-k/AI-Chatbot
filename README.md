@@ -14,6 +14,10 @@ default). Deploys to Vercel.
 - Cloud storage in Supabase PostgreSQL with Row-Level Security (each user sees only their own data)
 - Projects to group related chats, plus rename and delete
 - Short share links: a read-only snapshot anyone can open, no account needed
+- **Voice mode**: dictate prompts and have replies read aloud, with an optional
+  hands-free loop, all on free browser speech APIs (no paid TTS/STT)
+- **Live collaborative rooms**: share a link so others can join and chat with the
+  AI together in real time, with live presence, powered by Supabase Realtime
 - Markdown rendering with syntax-highlighted code blocks and copy buttons
 - Dark and light mode (emerald palette in both)
 
@@ -43,16 +47,26 @@ Browser (React client)
   stores nothing; the client saves messages to Supabase.
 - **Share links:** a snapshot is stored once in the `shared_chats` table and the
   link carries only a short id (`/share/<id>`), readable by anyone.
+- **Voice mode:** the browser Web Speech API handles speech-to-text and
+  `speechSynthesis` handles text-to-speech, wired into the chat from event
+  callbacks. Nothing leaves the browser; feature-detected so it hides where
+  unsupported.
+- **Live rooms:** a room (`rooms` + `room_messages` tables) is a real-time chat
+  any signed-in user can join via `/room/<id>`. Messages sync through Supabase
+  Realtime (Postgres Changes) and Presence shows who is online; the sender's
+  client calls `/api/room-reply` and persists the answer for everyone.
 
 ## Project structure
 
 ```
 app/
   api/chat/route.ts        streaming chat endpoint (model provider)
+  api/room-reply/route.ts  non-streaming reply for live rooms
   auth/login/page.tsx      magic-link sign-in screen
   auth/callback/route.ts   exchanges the magic-link code for a session
   auth/logout/route.ts     signs out
   c/[id]/page.tsx          a single conversation
+  room/[id]/page.tsx       live collaborative room (realtime + presence)
   share/[id]/page.tsx      public read-only shared view
   layout.tsx               fonts, theme + auth providers, app shell
   page.tsx                 redirects to a fresh chat id
@@ -63,6 +77,10 @@ lib/
   use-conversations.ts     reactive chats store (optimistic + Supabase)
   use-projects.ts          reactive projects store
   share.ts                 store/fetch share snapshots, build short links
+  rooms.ts                 create/fetch/insert live-room messages
+  use-room.ts              room realtime: postgres changes + presence
+  use-speech-recognition.ts  speech-to-text hook (Web Speech API)
+  use-speech-synthesis.ts    text-to-speech hook (speechSynthesis)
   provider.ts              configures the model from env
 providers/
   auth-provider.tsx        single source of auth state + per-user store refresh
@@ -70,8 +88,9 @@ providers/
 components/
   layout/                  app shell, top bar, theme toggle
   sidebar/                 sidebar, project + chat items, account menu
-  chat/                    chat container, message list, message, composer, markdown
+  chat/                    chat container, message list, message, composer, markdown, voice buttons
   share/                   share button, dialog, shared view
+  room/                    start-session button
 proxy.ts                   auth proxy (runs before page requests)
 supabase-schema.sql        tables + Row-Level Security to run in Supabase
 ```
@@ -82,7 +101,9 @@ supabase-schema.sql        tables + Row-Level Security to run in Supabase
 
 In your Supabase project, open **SQL Editor** and run the contents of
 [`supabase-schema.sql`](supabase-schema.sql). This creates the `projects`,
-`conversations`, and `shared_chats` tables with Row-Level Security.
+`conversations`, `shared_chats`, `rooms`, and `room_messages` tables with
+Row-Level Security, and enables Supabase Realtime on `room_messages` (required
+for live collaborative rooms).
 
 ### 2. Configure auth redirect URLs
 

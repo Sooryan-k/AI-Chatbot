@@ -65,3 +65,48 @@ create policy "Users can create their own shares"
 create policy "Users can delete their own shares"
   on shared_chats for delete
   using (auth.uid() = user_id);
+
+-- ── Live collaborative rooms ──────────────────────────────────────────────────
+-- A room is a real-time chat any signed-in user can join via its link. Room ids
+-- are random and unguessable; access is link-based, like the share feature.
+-- (A future room_members table could restrict reads to invited users.)
+create table if not exists rooms (
+  id          text        primary key,
+  host_id     uuid        references auth.users not null,
+  title       text        not null default 'Live chat',
+  created_at  bigint      not null
+);
+
+create table if not exists room_messages (
+  id          text        primary key,
+  room_id     text        references rooms(id) on delete cascade not null,
+  sender_id   uuid        references auth.users,
+  sender_name text,
+  role        text        not null,   -- 'user' | 'assistant'
+  content     text        not null,
+  created_at  bigint      not null
+);
+
+alter table rooms enable row level security;
+alter table room_messages enable row level security;
+
+-- Any signed-in user with the link can read and join a room.
+create policy "Signed-in users can read rooms"
+  on rooms for select to authenticated using (true);
+
+create policy "Users can create rooms they host"
+  on rooms for insert to authenticated with check (auth.uid() = host_id);
+
+create policy "Signed-in users can read room messages"
+  on room_messages for select to authenticated using (true);
+
+-- Senders post their own user messages; assistant rows have a null sender.
+create policy "Signed-in users can post room messages"
+  on room_messages for insert to authenticated
+  with check (auth.uid() = sender_id or sender_id is null);
+
+create index if not exists room_messages_room_created
+  on room_messages (room_id, created_at);
+
+-- Stream inserts to all participants in real time.
+alter publication supabase_realtime add table room_messages;
