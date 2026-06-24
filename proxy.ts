@@ -56,7 +56,10 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // run on all paths except api routes, next.js internals and static assets.
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // run on all paths except api routes, next.js internals, generated
+    // metadata routes (icons, og image, manifest) and static assets. these
+    // must stay public so browsers and social crawlers can fetch them without
+    // being redirected to the login page.
+    "/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|opengraph-image|twitter-image|manifest.webmanifest|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

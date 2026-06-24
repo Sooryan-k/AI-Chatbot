@@ -15,14 +15,59 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = "https://zooperchat.vercel.app";
+const description =
+  "A ChatGPT style AI chat app with cloud synced history, streaming replies, projects, and shareable links. Sign in with an email link and your chats follow you across devices.";
+
 export const metadata: Metadata = {
-  title: "ZooperChat",
-  description: "A ChatGPT-style AI chat app with cloud-synced history.",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "ZooperChat — AI chat with cloud synced history",
+    template: "%s · ZooperChat",
+  },
+  description,
+  applicationName: "ZooperChat",
+  keywords: [
+    "ZooperChat",
+    "AI chat",
+    "AI chatbot",
+    "ChatGPT alternative",
+    "streaming chat",
+    "OpenRouter",
+    "Supabase",
+    "Next.js",
+  ],
+  authors: [{ name: "Sooryan K" }],
+  creator: "Sooryan K",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "ZooperChat",
+    title: "ZooperChat — AI chat with cloud synced history",
+    description,
+    url: siteUrl,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ZooperChat — AI chat with cloud synced history",
+    description,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
+  category: "technology",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c1311" },
+  ],
 };
 
 // root layout for every page. it loads the fonts, sets the theme provider for
