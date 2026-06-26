@@ -21,12 +21,15 @@ import {
   insertRoomMessage,
   joinRoom,
   leaveRoom,
+  roomMessageToUIMessage,
   type RoomMessageRow,
 } from "@/lib/rooms";
+import { useShare } from "@/lib/use-share";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/chat/markdown";
 import { Composer } from "@/components/chat/composer";
 import { Modal } from "@/components/ui/modal";
+import { ShareDialog } from "@/components/share/share-dialog";
 import { UsernameDialog, UsernameGate } from "@/components/room/username";
 import { AiListenButton, AiToggleButton } from "@/components/room/room-controls";
 
@@ -97,6 +100,7 @@ function RoomChat({
   const [shareOpen, setShareOpen] = useState(false);
   const [aiOn, setAiOn] = useState(true);
   const [selectMode, setSelectMode] = useState(false);
+  const share = useShare();
 
   const memKey = `zooper-room-memory:${roomId}`;
   const [remembered, setRemembered] = useState<Set<string>>(() => {
@@ -162,6 +166,24 @@ function RoomChat({
   function handleInputChange(value: string) {
     setInput(value);
     sendTyping();
+  }
+
+  // share a single message from the room as a read-only link.
+  function handleShareMessage(row: RoomMessageRow) {
+    const who =
+      row.role === "assistant"
+        ? "AI"
+        : (row.sender_id && nameById.get(row.sender_id)) ||
+          row.sender_name ||
+          "Someone";
+    share.share({
+      v: 1,
+      kind: "chat",
+      title:
+        row.role === "assistant" ? "Shared AI response" : `Message from ${who}`,
+      createdAt: Date.now(),
+      messages: [roomMessageToUIMessage(row)],
+    });
   }
 
   async function handleSend() {
@@ -251,6 +273,7 @@ function RoomChat({
           selectMode={selectMode}
           remembered={remembered}
           onToggleRemember={toggleRemembered}
+          onShare={handleShareMessage}
         />
       )}
 
@@ -293,6 +316,14 @@ function RoomChat({
         currentName={username}
       />
       <ShareRoomDialog open={shareOpen} onClose={() => setShareOpen(false)} />
+      <ShareDialog
+        open={share.open}
+        onClose={share.close}
+        kind="chat"
+        url={share.url}
+        loading={share.loading}
+        error={share.error}
+      />
     </div>
   );
 }
@@ -484,6 +515,7 @@ function RoomFeed({
   selectMode,
   remembered,
   onToggleRemember,
+  onShare,
 }: {
   items: RoomFeedItem[];
   meId: string;
@@ -492,6 +524,7 @@ function RoomFeed({
   selectMode: boolean;
   remembered: Set<string>;
   onToggleRemember: (id: string) => void;
+  onShare: (row: RoomMessageRow) => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -536,6 +569,7 @@ function RoomFeed({
               senderName={nameOf(item.row)}
               isOwn={item.row.sender_id === meId}
               remembered={remembered.has(item.row.id)}
+              onShare={onShare}
             />
           ),
         )}
@@ -588,15 +622,17 @@ function RoomMessage({
   senderName,
   isOwn,
   remembered,
+  onShare,
 }: {
   row: RoomMessageRow;
   senderName: string;
   isOwn: boolean;
   remembered: boolean;
+  onShare: (row: RoomMessageRow) => void;
 }) {
   if (row.role === "assistant") {
     return (
-      <div className="flex items-start gap-2.5">
+      <div className="group flex items-start gap-2.5">
         <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-white">
           <Bot size={18} />
         </span>
@@ -607,6 +643,7 @@ function RoomMessage({
           <div className="rounded-2xl rounded-tl-md border border-border bg-card px-4 py-3 shadow-sm">
             <Markdown content={row.content} />
           </div>
+          <MessageActions align="left" onShare={() => onShare(row)} />
         </div>
       </div>
     );
@@ -614,17 +651,18 @@ function RoomMessage({
 
   if (isOwn) {
     return (
-      <div className="flex flex-col items-end">
+      <div className="group flex flex-col items-end">
         {remembered && <MemoryBadge align="right" />}
         <div className="max-w-[82%] whitespace-pre-wrap wrap-break-word rounded-2xl rounded-br-md bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm text-white shadow-sm sm:text-base">
           {row.content}
         </div>
+        <MessageActions align="right" onShare={() => onShare(row)} />
       </div>
     );
   }
 
   return (
-    <div className="flex items-end gap-2">
+    <div className="group flex items-end gap-2">
       <Avatar name={senderName} className="h-8 w-8 text-sm" />
       <div className="flex min-w-0 max-w-[82%] flex-col">
         <span
@@ -637,7 +675,37 @@ function RoomMessage({
         <div className="whitespace-pre-wrap wrap-break-word rounded-2xl rounded-bl-md border border-border bg-card px-4 py-2.5 text-sm shadow-sm sm:text-base">
           {row.content}
         </div>
+        <MessageActions align="left" onShare={() => onShare(row)} />
       </div>
+    </div>
+  );
+}
+
+// per-message actions (share a single message as a read-only link). visible on
+// touch, revealed on hover on desktop.
+function MessageActions({
+  align,
+  onShare,
+}: {
+  align: "left" | "right";
+  onShare: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "mt-1 flex opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100",
+        align === "right" ? "justify-end" : "justify-start",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onShare}
+        title="Share this message"
+        className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <Share2 size={12} />
+        Share
+      </button>
     </div>
   );
 }

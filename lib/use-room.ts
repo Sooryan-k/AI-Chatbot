@@ -8,6 +8,7 @@ import type {
 } from "@supabase/supabase-js";
 import { getBrowserClient } from "./supabase/client";
 import { fetchRoomMessages, type RoomMessageRow } from "./rooms";
+import { ROOMS_LOBBY_CHANNEL } from "./room-presence";
 import { playJoinSound } from "./sound";
 
 // realtime state for one collaborative room. loads history, streams new messages
@@ -177,6 +178,15 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
         }
       });
 
+    // also announce presence in the shared lobby so the sidebar can show how
+    // many people are live in this room.
+    const lobby = sb.channel(ROOMS_LOBBY_CHANNEL, {
+      config: { presence: { key: meRef.current.id } },
+    });
+    lobby.subscribe((status: string) => {
+      if (status === "SUBSCRIBED") lobby.track({ room: roomId });
+    });
+
     const typing = typingRef.current;
     return () => {
       active = false;
@@ -184,6 +194,7 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
       for (const { timer } of typing.values()) clearTimeout(timer);
       typing.clear();
       sb.removeChannel(channel);
+      sb.removeChannel(lobby);
     };
   }, [roomId]);
 

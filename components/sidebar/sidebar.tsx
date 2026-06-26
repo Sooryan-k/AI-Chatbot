@@ -7,6 +7,7 @@ import { FolderPlus, PanelLeftClose, Plus, Users } from "lucide-react";
 import { useConversations } from "@/lib/use-conversations";
 import { useProjects } from "@/lib/use-projects";
 import { useMyRooms } from "@/lib/use-rooms";
+import { useLiveCounts } from "@/lib/use-live-counts";
 import { useUser } from "@/providers/auth-provider";
 import { groupConversationsByDate, newId } from "@/lib/utils";
 import { ConversationItem } from "./conversation-item";
@@ -22,6 +23,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const conversations = useConversations();
   const projects = useProjects();
   const { rooms: liveRooms } = useMyRooms();
+  const liveCounts = useLiveCounts();
   const { user } = useUser();
   const pathname = usePathname();
   const router = useRouter();
@@ -138,21 +140,35 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
               </span>
             </div>
             <ul className="space-y-0.5">
-              {liveRooms.map((room) => (
-                <li key={room.id}>
-                  <Link
-                    href={`/room/${room.id}`}
-                    onClick={onClose}
-                    className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-emerald-500/10"
-                  >
-                    <Users
-                      size={15}
-                      className="shrink-0 text-muted-foreground"
-                    />
-                    <span className="truncate">{room.title}</span>
-                  </Link>
-                </li>
-              ))}
+              {liveRooms.map((room) => {
+                const live = liveCounts.get(room.id) ?? 0;
+                return (
+                  <li key={room.id}>
+                    <Link
+                      href={`/room/${room.id}`}
+                      onClick={onClose}
+                      className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-emerald-500/10"
+                    >
+                      <Users
+                        size={15}
+                        className="shrink-0 text-muted-foreground"
+                      />
+                      <span className="min-w-0 flex-1 truncate">
+                        {room.title}
+                      </span>
+                      {live > 0 && (
+                        <span
+                          className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+                          title={`${live} ${live === 1 ? "person" : "people"} live now`}
+                        >
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                          {live}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
