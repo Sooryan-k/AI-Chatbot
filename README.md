@@ -101,9 +101,10 @@ supabase-schema.sql        tables + Row-Level Security to run in Supabase
 
 In your Supabase project, open **SQL Editor** and run the contents of
 [`supabase-schema.sql`](supabase-schema.sql). This creates the `projects`,
-`conversations`, `shared_chats`, `rooms`, and `room_messages` tables with
-Row-Level Security, and enables Supabase Realtime on `room_messages` (required
-for live collaborative rooms).
+`conversations`, `shared_chats`, `rooms`, `room_messages`, and `room_members`
+tables with Row-Level Security, and enables Supabase Realtime on `room_messages`
+(required for live collaborative rooms). Usernames for live chat are stored in
+Supabase auth user metadata, so they need no table.
 
 ### 2. Configure auth redirect URLs
 

@@ -5,16 +5,19 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { ModelMessage } from "ai";
 import type { User } from "@supabase/supabase-js";
-import { ArrowLeft, Bot, Check, Copy, Users } from "lucide-react";
+import { ArrowLeft, Bot, Check, Copy, Pencil, Users } from "lucide-react";
 import { useUser } from "@/providers/auth-provider";
+import { getUsername } from "@/lib/profile";
 import { useRoom, type RoomParticipant } from "@/lib/use-room";
 import {
   insertRoomMessage,
+  joinRoom,
   roomMessageToUIMessage,
   type RoomMessageRow,
 } from "@/lib/rooms";
 import { Message } from "@/components/chat/message";
 import { Composer } from "@/components/chat/composer";
+import { UsernameDialog, UsernameGate } from "@/components/room/username";
 
 function Spinner() {
   return (
@@ -25,8 +28,6 @@ function Spinner() {
 }
 
 // /room/<id> — a real-time chat any signed-in user can join via its link.
-// gates on the auth state, then hands the real work to RoomView so the realtime
-// hook is always called unconditionally.
 export default function RoomPage() {
   const params = useParams<{ id: string }>();
   const { user, loading } = useUser();
@@ -35,21 +36,39 @@ export default function RoomPage() {
   return <RoomView roomId={params.id} user={user} />;
 }
 
+// gate on having a username before joining. once set (via auth metadata), the
+// user object updates and RoomChat renders.
 function RoomView({ roomId, user }: { roomId: string; user: User }) {
-  const me: RoomParticipant = {
-    id: user.id,
-    name: user.email ?? "Guest",
-  };
+  const username = getUsername(user);
+  if (!username) return <UsernameGate />;
+  return <RoomChat roomId={roomId} userId={user.id} username={username} />;
+}
+
+function RoomChat({
+  roomId,
+  userId,
+  username,
+}: {
+  roomId: string;
+  userId: string;
+  username: string;
+}) {
+  const me: RoomParticipant = { id: userId, name: username };
   const { messages, online, loading, error } = useRoom(roomId, me);
   const [input, setInput] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+
+  // record membership so the room shows up in the user's live-session history.
+  useEffect(() => {
+    joinRoom(roomId).catch(console.error);
+  }, [roomId]);
 
   async function handleSend() {
     const text = input.trim();
     if (!text || generating) return;
     setInput("");
 
-    // persist + broadcast the user message to everyone in the room.
     insertRoomMessage(roomId, {
       role: "user",
       content: text,
@@ -57,7 +76,6 @@ function RoomView({ roomId, user }: { roomId: string; user: User }) {
       senderId: me.id,
     }).catch(console.error);
 
-    // build the model history from what is committed, plus this new message.
     const history: ModelMessage[] = messages.map((m) => ({
       role: m.role === "assistant" ? "assistant" : "user",
       content: m.content,
@@ -89,7 +107,11 @@ function RoomView({ roomId, user }: { roomId: string; user: User }) {
 
   return (
     <div className="flex h-dvh min-h-0 flex-col bg-background text-foreground">
-      <RoomHeader online={online} />
+      <RoomHeader
+        online={online}
+        username={username}
+        onChangeName={() => setEditingName(true)}
+      />
       {loading ? (
         <Spinner />
       ) : error ? (
@@ -106,11 +128,24 @@ function RoomView({ roomId, user }: { roomId: string; user: User }) {
         onStop={() => {}}
         isBusy={generating}
       />
+      <UsernameDialog
+        open={editingName}
+        onClose={() => setEditingName(false)}
+        currentName={username}
+      />
     </div>
   );
 }
 
-function RoomHeader({ online }: { online: RoomParticipant[] }) {
+function RoomHeader({
+  online,
+  username,
+  onChangeName,
+}: {
+  online: RoomParticipant[];
+  username: string;
+  onChangeName: () => void;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copyLink() {
@@ -140,6 +175,15 @@ function RoomHeader({ online }: { online: RoomParticipant[] }) {
 
       <div className="flex items-center gap-2">
         <PresenceBar online={online} />
+        <button
+          type="button"
+          onClick={onChangeName}
+          title="Change your username"
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <span className="max-w-24 truncate">{username}</span>
+          <Pencil size={13} className="shrink-0" />
+        </button>
         <button
           type="button"
           onClick={copyLink}
@@ -229,7 +273,7 @@ function RoomMessages({
 }
 
 // assistant rows render with the shared Message component; user rows add the
-// sender's name above the bubble so participants can tell who said what.
+// sender's username above the bubble so participants can tell who said what.
 function RoomRow({ row }: { row: RoomMessageRow }) {
   const ui = roomMessageToUIMessage(row);
   if (row.role === "assistant") return <Message message={ui} />;

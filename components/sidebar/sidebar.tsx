@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FolderPlus, PanelLeftClose, Plus } from "lucide-react";
+import { FolderPlus, PanelLeftClose, Plus, Users } from "lucide-react";
 import { useConversations } from "@/lib/use-conversations";
 import { useProjects } from "@/lib/use-projects";
+import { useMyRooms } from "@/lib/use-rooms";
 import { useUser } from "@/providers/auth-provider";
 import { groupConversationsByDate, newId } from "@/lib/utils";
 import { ConversationItem } from "./conversation-item";
@@ -20,6 +21,7 @@ import { StartSessionButton } from "@/components/room/start-session-button";
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const conversations = useConversations();
   const projects = useProjects();
+  const { rooms: liveRooms } = useMyRooms();
   const { user } = useUser();
   const pathname = usePathname();
   const router = useRouter();
@@ -126,6 +128,34 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             {projects.length === 0 ? "Create your first project" : "New project"}
           </button>
         </div>
+
+        {/* ── Live sessions (history) ── */}
+        {liveRooms.length > 0 && (
+          <div className="mb-4">
+            <div className="px-3 py-1">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Live sessions
+              </span>
+            </div>
+            <ul className="space-y-0.5">
+              {liveRooms.map((room) => (
+                <li key={room.id}>
+                  <Link
+                    href={`/room/${room.id}`}
+                    onClick={onClose}
+                    className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-emerald-500/10"
+                  >
+                    <Users
+                      size={15}
+                      className="shrink-0 text-muted-foreground"
+                    />
+                    <span className="truncate">{room.title}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* ── Chats ── */}
         <div>

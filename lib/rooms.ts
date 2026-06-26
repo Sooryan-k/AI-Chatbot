@@ -90,3 +90,53 @@ export function roomMessageToUIMessage(row: RoomMessageRow): ChatMessage {
     parts: [{ type: "text", text: row.content }],
   } as ChatMessage;
 }
+
+// ── Membership / history ──────────────────────────────────────────────────────
+
+export interface RoomSummary {
+  id: string;
+  title: string;
+  joinedAt: number;
+}
+
+/** Record that the current user has joined a room (for the history list). */
+export async function joinRoom(roomId: string): Promise<void> {
+  const sb = getBrowserClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return;
+  const { error } = await sb
+    .from("room_members")
+    .upsert(
+      { room_id: roomId, user_id: user.id, joined_at: Date.now() },
+      { onConflict: "room_id,user_id" },
+    );
+  if (error) throw error;
+}
+
+/** Rooms the current user has joined, most recent first. */
+export async function fetchMyRooms(): Promise<RoomSummary[]> {
+  const sb = getBrowserClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await sb
+    .from("room_members")
+    .select("joined_at, rooms(id, title)")
+    .eq("user_id", user.id)
+    .order("joined_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+
+  type Row = { joined_at: number; rooms: { id: string; title: string } | null };
+  return ((data ?? []) as unknown as Row[])
+    .filter((r) => r.rooms)
+    .map((r) => ({
+      id: r.rooms!.id,
+      title: r.rooms!.title,
+      joinedAt: r.joined_at,
+    }));
+}

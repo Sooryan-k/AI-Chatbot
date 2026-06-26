@@ -110,3 +110,31 @@ create index if not exists room_messages_room_created
 
 -- Stream inserts to all participants in real time.
 alter publication supabase_realtime add table room_messages;
+
+-- ── Room membership ───────────────────────────────────────────────────────────
+-- One row per (room, user) that the user has joined. Powers the "Live sessions"
+-- history list so people can return to rooms they have been in. Usernames are
+-- stored in auth user metadata, not here.
+create table if not exists room_members (
+  room_id    text   references rooms(id) on delete cascade not null,
+  user_id    uuid   references auth.users not null,
+  joined_at  bigint not null,
+  primary key (room_id, user_id)
+);
+
+alter table room_members enable row level security;
+
+create policy "Signed-in users can read room members"
+  on room_members for select to authenticated using (true);
+
+create policy "Users can join rooms as themselves"
+  on room_members for insert to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own membership"
+  on room_members for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create index if not exists room_members_user_joined
+  on room_members (user_id, joined_at desc);
