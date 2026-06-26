@@ -12,6 +12,7 @@ export interface RoomMessageRow {
   sender_name: string | null;
   role: string; // 'user' | 'assistant'
   content: string;
+  to_ai: boolean; // was this message addressed to the AI?
   created_at: number;
 }
 
@@ -52,7 +53,9 @@ export async function fetchRoomMessages(
   const sb = getBrowserClient();
   const { data, error } = await sb
     .from("room_messages")
-    .select("id, room_id, sender_id, sender_name, role, content, created_at")
+    .select(
+      "id, room_id, sender_id, sender_name, role, content, to_ai, created_at",
+    )
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -67,6 +70,7 @@ export async function insertRoomMessage(
     content: string;
     senderName: string | null;
     senderId: string | null;
+    toAi?: boolean;
   },
 ): Promise<void> {
   const sb = getBrowserClient();
@@ -77,6 +81,7 @@ export async function insertRoomMessage(
     sender_name: msg.senderName,
     role: msg.role,
     content: msg.content,
+    to_ai: msg.toAi ?? false,
     created_at: Date.now(),
   });
   if (error) throw error;

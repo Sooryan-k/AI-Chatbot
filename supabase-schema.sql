@@ -84,8 +84,11 @@ create table if not exists room_messages (
   sender_name text,
   role        text        not null,   -- 'user' | 'assistant'
   content     text        not null,
+  to_ai       boolean     not null default false,  -- was this addressed to the AI?
   created_at  bigint      not null
 );
+-- if room_messages already exists, add the column:
+--   alter table room_messages add column if not exists to_ai boolean not null default false;
 
 alter table rooms enable row level security;
 alter table room_messages enable row level security;

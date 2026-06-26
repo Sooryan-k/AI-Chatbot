@@ -10,6 +10,7 @@ export function Composer({
   onStop,
   isBusy,
   leftAccessory,
+  placeholder = "Message ZooperChat…",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -18,6 +19,7 @@ export function Composer({
   isBusy: boolean;
   // optional controls rendered to the left of the textarea (e.g. voice buttons).
   leftAccessory?: ReactNode;
+  placeholder?: string;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -52,7 +54,7 @@ export function Composer({
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
-            placeholder="Message ZooperChat…"
+            placeholder={placeholder}
             className="max-h-50 flex-1 resize-none bg-transparent py-1.5 text-base outline-none placeholder:text-muted-foreground sm:text-sm"
           />
           {isBusy ? (

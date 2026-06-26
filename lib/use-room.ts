@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   RealtimeChannel,
   RealtimePostgresInsertPayload,
@@ -31,6 +31,10 @@ export interface RoomState {
   messages: RoomMessageRow[];
   online: RoomParticipant[];
   notices: RoomNotice[];
+  /** Names of other participants currently typing. */
+  typingUsers: string[];
+  /** Broadcast that the current user is typing (throttled internally). */
+  sendTyping: () => void;
   loading: boolean;
   error: boolean;
 }
@@ -39,8 +43,16 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
   const [messages, setMessages] = useState<RoomMessageRow[]>([]);
   const [online, setOnline] = useState<RoomParticipant[]>([]);
   const [notices, setNotices] = useState<RoomNotice[]>([]);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // who is typing -> their name + a removal timer. expires ~2.5s after the last
+  // keystroke event from that user.
+  const typingRef = useRef<
+    Map<string, { name: string; timer: ReturnType<typeof setTimeout> }>
+  >(new Map());
+  const lastTypingSentRef = useRef(0);
 
   // message ids already in state, so re-delivered inserts are not duplicated.
   const seenMessageRef = useRef<Set<string>>(new Set());
@@ -104,10 +116,15 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
             name: metas[0]?.name ?? "Guest",
           })),
         );
-        // first sync: treat everyone already here as known (no join notices).
+        // first sync: treat everyone already here as known (no join notices),
+        // and show the new joiner their own "you joined" line like everyone else.
         if (!presenceReadyRef.current) {
           for (const id of Object.keys(state)) presenceSeenRef.current.add(id);
           presenceReadyRef.current = true;
+          setNotices((prev) => [
+            ...prev,
+            { id: `you-${Date.now()}`, name: "You", at: Date.now() },
+          ]);
         }
       })
       .on(
@@ -135,15 +152,35 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
         // allow a rejoin to announce again later.
         presenceSeenRef.current.delete(key);
       })
+      .on(
+        "broadcast",
+        { event: "typing" },
+        ({ payload }: { payload: { id: string; name: string } }) => {
+          if (payload.id === meRef.current.id) return;
+          const existing = typingRef.current.get(payload.id);
+          if (existing) clearTimeout(existing.timer);
+          const timer = setTimeout(() => {
+            typingRef.current.delete(payload.id);
+            setTypingUsers(
+              [...typingRef.current.values()].map((v) => v.name),
+            );
+          }, 2500);
+          typingRef.current.set(payload.id, { name: payload.name, timer });
+          setTypingUsers([...typingRef.current.values()].map((v) => v.name));
+        },
+      )
       .subscribe((status: string) => {
         if (status === "SUBSCRIBED") {
           channel.track({ name: meRef.current.name });
         }
       });
 
+    const typing = typingRef.current;
     return () => {
       active = false;
       channelRef.current = null;
+      for (const { timer } of typing.values()) clearTimeout(timer);
+      typing.clear();
       sb.removeChannel(channel);
     };
   }, [roomId]);
@@ -154,5 +191,17 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
     channelRef.current?.track({ name: me.name });
   }, [me.name]);
 
-  return { messages, online, notices, loading, error };
+  // broadcast a typing event, throttled to at most once per ~1.5s.
+  const sendTyping = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 1500) return;
+    lastTypingSentRef.current = now;
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { id: meRef.current.id, name: meRef.current.name },
+    });
+  }, []);
+
+  return { messages, online, notices, typingUsers, sendTyping, loading, error };
 }
