@@ -12,7 +12,7 @@ import {
   LogOut,
   Pencil,
   Share2,
-  Users,
+  Sparkles,
 } from "lucide-react";
 import { useUser } from "@/providers/auth-provider";
 import { getUsername } from "@/lib/profile";
@@ -21,15 +21,38 @@ import {
   insertRoomMessage,
   joinRoom,
   leaveRoom,
-  roomMessageToUIMessage,
   type RoomMessageRow,
 } from "@/lib/rooms";
 import { cn } from "@/lib/utils";
-import { Message } from "@/components/chat/message";
+import { Markdown } from "@/components/chat/markdown";
 import { Composer } from "@/components/chat/composer";
 import { Modal } from "@/components/ui/modal";
 import { UsernameDialog, UsernameGate } from "@/components/room/username";
 import { AiListenButton, AiToggleButton } from "@/components/room/room-controls";
+
+// a stable, distinct color per participant derived from their name.
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return `hsl(${Math.abs(hash) % 360} 62% 45%)`;
+}
+
+function Avatar({ name, className }: { name: string; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full font-semibold text-white",
+        className,
+      )}
+      style={{ backgroundColor: avatarColor(name) }}
+      title={name}
+    >
+      {name.charAt(0).toUpperCase()}
+    </span>
+  );
+}
 
 function Spinner() {
   return (
@@ -48,7 +71,6 @@ export default function RoomPage() {
   return <RoomView roomId={params.id} user={user} />;
 }
 
-// gate on having a username before joining.
 function RoomView({ roomId, user }: { roomId: string; user: User }) {
   const username = getUsername(user);
   if (!username) return <UsernameGate />;
@@ -76,7 +98,6 @@ function RoomChat({
   const [aiOn, setAiOn] = useState(true);
   const [selectMode, setSelectMode] = useState(false);
 
-  // messages the user pinned for the AI to remember, persisted per room.
   const memKey = `zooper-room-memory:${roomId}`;
   const [remembered, setRemembered] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -102,14 +123,13 @@ function RoomChat({
     });
   }
 
-  // resolve each message's display name from the live presence roster, so a
-  // rename updates everywhere; fall back to the stored name for offline users.
+  // resolve display names from the live presence roster so a rename updates
+  // everywhere; fall back to the stored name for offline users.
   const nameById = useMemo(
     () => new Map(online.map((p) => [p.id, p.name])),
     [online],
   );
 
-  // merge messages and join notices into one time-ordered feed.
   const items = useMemo<RoomFeedItem[]>(() => {
     const msgs: RoomFeedItem[] = messages.map((row) => ({
       kind: "message",
@@ -131,7 +151,6 @@ function RoomChat({
   }, [roomId]);
 
   async function handleLeave() {
-    // remove membership so the room drops out of the history list.
     try {
       await leaveRoom(roomId);
     } catch (err) {
@@ -150,7 +169,6 @@ function RoomChat({
     if (!text || generating) return;
     setInput("");
 
-    // post the message; to_ai marks whether it is a question for the AI.
     insertRoomMessage(roomId, {
       role: "user",
       content: text,
@@ -159,9 +177,8 @@ function RoomChat({
       toAi: aiOn,
     }).catch(console.error);
 
-    if (!aiOn) return; // chatting with people, no AI reply
+    if (!aiOn) return;
 
-    // AI context: its own thread (to_ai or assistant) plus pinned messages.
     const context: ModelMessage[] = messages
       .filter((m) => m.to_ai || m.role === "assistant" || remembered.has(m.id))
       .map((m) => ({
@@ -194,7 +211,7 @@ function RoomChat({
     }
   }
 
-  const voiceControls = (
+  const composerControls = (
     <div className="flex items-end gap-1">
       <AiToggleButton active={aiOn} onToggle={() => setAiOn((v) => !v)} />
       <AiListenButton
@@ -205,9 +222,13 @@ function RoomChat({
   );
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col bg-background text-foreground">
+    <div className="relative flex h-dvh min-h-0 flex-col bg-background text-foreground">
+      {/* soft emerald glow behind the header */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-40 bg-gradient-to-b from-emerald-500/[0.07] to-transparent" />
+
       <RoomHeader
         online={online}
+        meId={me.id}
         username={username}
         onChangeName={() => setEditingName(true)}
         onShare={() => setShareOpen(true)}
@@ -224,32 +245,33 @@ function RoomChat({
       ) : (
         <RoomFeed
           items={items}
+          meId={me.id}
           nameById={nameById}
-          typing={generating}
+          aiTyping={generating}
           selectMode={selectMode}
           remembered={remembered}
           onToggleRemember={toggleRemembered}
         />
       )}
 
-      {/* status line above the composer */}
       {selectMode ? (
-        <div className="flex items-center justify-between gap-2 border-t border-border bg-emerald-500/5 px-4 py-2 text-xs text-emerald-700 dark:text-emerald-300">
-          <span>
-            Tap messages to add them to the AI&apos;s memory ({remembered.size}{" "}
-            saved). The AI uses them in its next answer.
+        <div className="z-10 flex items-center justify-between gap-2 border-t border-border bg-emerald-500/5 px-4 py-2.5 text-xs text-emerald-700 dark:text-emerald-300">
+          <span className="flex items-center gap-1.5">
+            <Sparkles size={13} />
+            Tap messages to add to the AI&apos;s memory · {remembered.size} saved
           </span>
           <button
             type="button"
             onClick={() => setSelectMode(false)}
-            className="shrink-0 rounded-md bg-emerald-600 px-2.5 py-1 font-medium text-white hover:bg-emerald-700"
+            className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1 font-medium text-white hover:bg-emerald-700"
           >
             Done
           </button>
         </div>
       ) : (
         typingUsers.length > 0 && (
-          <div className="px-4 pt-1 text-xs text-muted-foreground">
+          <div className="z-10 flex items-center gap-2 px-5 pb-1 pt-2 text-xs text-muted-foreground">
+            <Dots />
             {formatTyping(typingUsers)}
           </div>
         )
@@ -261,7 +283,7 @@ function RoomChat({
         onSend={handleSend}
         onStop={() => {}}
         isBusy={generating}
-        leftAccessory={voiceControls}
+        leftAccessory={composerControls}
         placeholder={aiOn ? "Ask the AI…" : "Message your group…"}
       />
 
@@ -275,6 +297,20 @@ function RoomChat({
   );
 }
 
+function Dots() {
+  return (
+    <span className="flex gap-0.5">
+      {[0, 150, 300].map((d) => (
+        <span
+          key={d}
+          className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-60"
+          style={{ animationDelay: `${d}ms` }}
+        />
+      ))}
+    </span>
+  );
+}
+
 function formatTyping(names: string[]): string {
   if (names.length === 1) return `${names[0]} is typing…`;
   if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`;
@@ -283,6 +319,7 @@ function formatTyping(names: string[]): string {
 
 function RoomHeader({
   online,
+  meId,
   username,
   onChangeName,
   onShare,
@@ -290,6 +327,7 @@ function RoomHeader({
   onLeave,
 }: {
   online: RoomParticipant[];
+  meId: string;
   username: string;
   onChangeName: () => void;
   onShare: () => void;
@@ -297,38 +335,50 @@ function RoomHeader({
   onLeave: () => void;
 }) {
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/80 px-3 backdrop-blur sm:px-4">
+    <header className="z-10 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/70 px-2 backdrop-blur-xl sm:px-4">
       <div className="flex min-w-0 items-center gap-1.5">
         <button
           type="button"
           onClick={onHome}
           title="Back to home (keeps this room in your history)"
           aria-label="Back to home"
-          className="flex items-center justify-center rounded-lg p-2 hover:bg-muted"
+          className="flex items-center justify-center rounded-xl p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <Home size={18} />
         </button>
-        <span className="hidden truncate font-semibold md:inline">
-          Live session
-        </span>
+        <div className="flex min-w-0 flex-col">
+          <div className="flex items-center gap-2">
+            <span className="hidden font-semibold sm:inline">Live session</span>
+            <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              </span>
+              Live
+            </span>
+          </div>
+          <span className="truncate text-xs text-muted-foreground">
+            {online.length} {online.length === 1 ? "person" : "people"} here
+          </span>
+        </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        <PresenceBar online={online} />
+        <PresenceBar online={online} meId={meId} />
         <button
           type="button"
           onClick={onChangeName}
           title={`Change your username (${username})`}
-          className="flex items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
+          className="flex items-center gap-1.5 rounded-xl px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
         >
-          <span className="max-w-20 truncate sm:max-w-32">{username}</span>
+          <span className="max-w-16 truncate sm:max-w-28">{username}</span>
           <Pencil size={13} className="shrink-0" />
         </button>
         <button
           type="button"
           onClick={onShare}
           title="Share / invite"
-          className="flex items-center gap-1.5 rounded-lg border border-border px-2 py-1.5 text-sm font-medium transition-colors hover:border-emerald-500/60 hover:bg-emerald-500/10 sm:px-2.5"
+          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-2.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
           <Share2 size={15} />
           <span className="hidden sm:inline">Share</span>
@@ -337,7 +387,8 @@ function RoomHeader({
           type="button"
           onClick={onLeave}
           title="Leave room (removes it from your history)"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+          aria-label="Leave room"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
         >
           <LogOut size={16} />
         </button>
@@ -346,29 +397,33 @@ function RoomHeader({
   );
 }
 
-function PresenceBar({ online }: { online: RoomParticipant[] }) {
-  const shown = online.slice(0, 3);
-  const extra = online.length - shown.length;
+function PresenceBar({
+  online,
+  meId,
+}: {
+  online: RoomParticipant[];
+  meId: string;
+}) {
+  // show others first, then self; cap the visible stack.
+  const ordered = [...online].sort((a, b) =>
+    a.id === meId ? 1 : b.id === meId ? -1 : 0,
+  );
+  const shown = ordered.slice(0, 3);
+  const extra = ordered.length - shown.length;
   return (
-    <div className="flex items-center gap-1.5" title={`${online.length} online`}>
+    <div className="flex items-center" title={`${online.length} online`}>
       <div className="flex -space-x-2">
         {shown.map((p) => (
-          <span
+          <Avatar
             key={p.id}
-            title={p.name}
-            className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-gradient-to-br from-emerald-400 to-teal-600 text-xs font-semibold text-white"
-          >
-            {p.name.charAt(0).toUpperCase()}
-          </span>
+            name={p.name}
+            className="h-7 w-7 border-2 border-background text-xs"
+          />
         ))}
       </div>
       {extra > 0 && (
-        <span className="text-xs text-muted-foreground">+{extra}</span>
+        <span className="ml-1.5 text-xs text-muted-foreground">+{extra}</span>
       )}
-      <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex">
-        <Users size={13} />
-        {online.length}
-      </span>
     </div>
   );
 }
@@ -417,22 +472,23 @@ function ShareRoomDialog({
   );
 }
 
-// one entry in the room feed: a chat message or an ephemeral "x joined" notice.
 type RoomFeedItem =
   | { kind: "message"; id: string; row: RoomMessageRow; at: number }
   | { kind: "join"; id: string; name: string; at: number };
 
 function RoomFeed({
   items,
+  meId,
   nameById,
-  typing,
+  aiTyping,
   selectMode,
   remembered,
   onToggleRemember,
 }: {
   items: RoomFeedItem[];
+  meId: string;
   nameById: Map<string, string>;
-  typing: boolean;
+  aiTyping: boolean;
   selectMode: boolean;
   remembered: Set<string>;
   onToggleRemember: (id: string) => void;
@@ -440,7 +496,7 @@ function RoomFeed({
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!selectMode) bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [items, typing, selectMode]);
+  }, [items, aiTyping, selectMode]);
 
   function nameOf(row: RoomMessageRow) {
     return (
@@ -450,20 +506,18 @@ function RoomFeed({
     );
   }
 
+  const messageCount = items.filter((i) => i.kind === "message").length;
+
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <div className="z-10 min-h-0 flex-1 overflow-y-auto">
       <div
         className={cn(
-          "mx-auto flex w-full max-w-3xl flex-col px-2 py-6 sm:px-4",
-          selectMode ? "gap-1" : "gap-6",
+          "mx-auto flex w-full max-w-3xl flex-col px-3 py-6 sm:px-4",
+          selectMode ? "gap-1" : "gap-4",
         )}
       >
-        {items.length === 0 && (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            No messages yet. Say hello — anyone with the link can join and chat
-            with the AI together.
-          </p>
-        )}
+        {messageCount === 0 && !selectMode && <EmptyRoom />}
+
         {items.map((item) =>
           item.kind === "join" ? (
             <JoinNotice key={item.id} name={item.name} />
@@ -476,27 +530,23 @@ function RoomFeed({
               onToggle={onToggleRemember}
             />
           ) : (
-            <RoomRow
+            <RoomMessage
               key={item.id}
               row={item.row}
               senderName={nameOf(item.row)}
+              isOwn={item.row.sender_id === meId}
               remembered={remembered.has(item.row.id)}
             />
           ),
         )}
-        {typing && !selectMode && (
-          <div className="flex gap-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+
+        {aiTyping && !selectMode && (
+          <div className="flex items-end gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-white">
               <Bot size={18} />
-            </div>
-            <div className="flex items-center gap-1 pt-2.5">
-              {[0, 150, 300].map((d) => (
-                <span
-                  key={d}
-                  className="h-2 w-2 animate-bounce rounded-full bg-emerald-500/70"
-                  style={{ animationDelay: `${d}ms` }}
-                />
-              ))}
+            </span>
+            <div className="rounded-2xl rounded-bl-md border border-border bg-card px-4 py-3 text-muted-foreground shadow-sm">
+              <Dots />
             </div>
           </div>
         )}
@@ -506,45 +556,106 @@ function RoomFeed({
   );
 }
 
+function EmptyRoom() {
+  return (
+    <div className="flex flex-col items-center py-16 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
+        <Sparkles className="size-7" />
+      </div>
+      <h2 className="text-lg font-semibold">Start the conversation</h2>
+      <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+        Anyone with the link can join. Chat together, and ask the AI with the
+        bot button on.
+      </p>
+    </div>
+  );
+}
+
 function JoinNotice({ name }: { name: string }) {
   return (
-    <div className="flex justify-center">
-      <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-        {name} joined the chat
+    <div className="flex justify-center py-1">
+      <span className="rounded-full bg-muted/70 px-3 py-1 text-xs text-muted-foreground">
+        {name === "You" ? "You joined the chat" : `${name} joined the chat`}
       </span>
     </div>
   );
 }
 
-// normal render. user rows show the sender name above the bubble; a small badge
-// marks messages pinned to the AI's memory.
-function RoomRow({
+// modern group-chat bubble: own messages right in emerald, others left with a
+// colored avatar + name, the AI left with a bot avatar + markdown.
+function RoomMessage({
   row,
   senderName,
+  isOwn,
   remembered,
 }: {
   row: RoomMessageRow;
   senderName: string;
+  isOwn: boolean;
   remembered: boolean;
 }) {
-  const ui = roomMessageToUIMessage(row);
-  if (row.role === "assistant") return <Message message={ui} />;
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-end gap-1.5 pr-1 text-xs text-muted-foreground">
-        {remembered && (
-          <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-emerald-600 dark:text-emerald-400">
-            in AI memory
+  if (row.role === "assistant") {
+    return (
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-white">
+          <Bot size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <span className="mb-1 block text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+            AI
           </span>
-        )}
-        <span>{senderName}</span>
+          <div className="rounded-2xl rounded-tl-md border border-border bg-card px-4 py-3 shadow-sm">
+            <Markdown content={row.content} />
+          </div>
+        </div>
       </div>
-      <Message message={ui} />
+    );
+  }
+
+  if (isOwn) {
+    return (
+      <div className="flex flex-col items-end">
+        {remembered && <MemoryBadge align="right" />}
+        <div className="max-w-[82%] whitespace-pre-wrap wrap-break-word rounded-2xl rounded-br-md bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm text-white shadow-sm sm:text-base">
+          {row.content}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-end gap-2">
+      <Avatar name={senderName} className="h-8 w-8 text-sm" />
+      <div className="flex min-w-0 max-w-[82%] flex-col">
+        <span
+          className="mb-0.5 px-1 text-xs font-semibold"
+          style={{ color: avatarColor(senderName) }}
+        >
+          {senderName}
+        </span>
+        {remembered && <MemoryBadge align="left" />}
+        <div className="whitespace-pre-wrap wrap-break-word rounded-2xl rounded-bl-md border border-border bg-card px-4 py-2.5 text-sm shadow-sm sm:text-base">
+          {row.content}
+        </div>
+      </div>
     </div>
   );
 }
 
-// select-mode render: a tappable list row with a checkbox to pin the message.
+function MemoryBadge({ align }: { align: "left" | "right" }) {
+  return (
+    <span
+      className={cn(
+        "mb-0.5 w-fit rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400",
+        align === "right" ? "self-end" : "self-start",
+      )}
+    >
+      in AI memory
+    </span>
+  );
+}
+
+// select-mode list row with a checkbox to pin the message into AI memory.
 function SelectableRow({
   row,
   senderName,
@@ -561,13 +672,13 @@ function SelectableRow({
       type="button"
       onClick={() => onToggle(row.id)}
       className={cn(
-        "flex w-full items-start gap-2 rounded-lg p-2 text-left transition-colors hover:bg-muted",
+        "flex w-full items-start gap-2.5 rounded-xl p-2.5 text-left transition-colors hover:bg-muted",
         remembered && "bg-emerald-500/10 ring-1 ring-emerald-500/40",
       )}
     >
       <span
         className={cn(
-          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
+          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors",
           remembered
             ? "border-emerald-500 bg-emerald-500 text-white"
             : "border-border",
@@ -576,7 +687,7 @@ function SelectableRow({
         {remembered && <Check size={13} />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-xs text-muted-foreground">
+        <span className="block text-xs font-medium text-muted-foreground">
           {row.role === "assistant" ? "AI" : senderName}
         </span>
         <span className="block wrap-break-word text-sm">{row.content}</span>
