@@ -3,6 +3,7 @@
 // note that cookies() is async in next 16, so this helper is async too.
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { AUTH_COOKIE_OPTIONS } from "./cookie-options";
 
 /** Server-side Supabase client (Route Handlers, Server Components). */
 export async function createSupabaseServerClient() {
@@ -11,6 +12,7 @@ export async function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: AUTH_COOKIE_OPTIONS,
       cookies: {
         getAll() {
           return cookieStore.getAll();

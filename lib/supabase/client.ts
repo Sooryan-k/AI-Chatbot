@@ -2,6 +2,7 @@
 // used by every client component and store. the anon key is safe to ship to
 // the browser because row level security guards the data.
 import { createBrowserClient } from "@supabase/ssr";
+import { AUTH_COOKIE_OPTIONS } from "./cookie-options";
 
 let client: ReturnType<typeof createBrowserClient> | null = null;
 
@@ -12,6 +13,7 @@ export function getBrowserClient() {
     client = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookieOptions: AUTH_COOKIE_OPTIONS },
     );
   }
   return client;
