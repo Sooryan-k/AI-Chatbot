@@ -173,21 +173,22 @@ function RoomHeader({
         </span>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         <PresenceBar online={online} />
         <button
           type="button"
           onClick={onChangeName}
-          title="Change your username"
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          title={`Change your username (${username})`}
+          className="flex items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
         >
-          <span className="max-w-24 truncate">{username}</span>
+          <span className="max-w-20 truncate sm:max-w-32">{username}</span>
           <Pencil size={13} className="shrink-0" />
         </button>
         <button
           type="button"
           onClick={copyLink}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm font-medium transition-colors hover:border-emerald-500/60 hover:bg-emerald-500/10"
+          title="Copy invite link"
+          className="flex items-center gap-1.5 rounded-lg border border-border px-2 py-1.5 text-sm font-medium transition-colors hover:border-emerald-500/60 hover:bg-emerald-500/10 sm:px-2.5"
         >
           {copied ? <Check size={15} /> : <Copy size={15} />}
           <span className="hidden sm:inline">
@@ -274,14 +275,16 @@ function RoomMessages({
 
 // assistant rows render with the shared Message component; user rows add the
 // sender's username above the bubble so participants can tell who said what.
+// the name sits in a full-width block so the Message keeps its own right-aligned
+// width (wrapping it in an items-end flex would collapse the bubble).
 function RoomRow({ row }: { row: RoomMessageRow }) {
   const ui = roomMessageToUIMessage(row);
   if (row.role === "assistant") return <Message message={ui} />;
   return (
-    <div className="flex flex-col items-end gap-1">
-      <span className="px-1 text-xs text-muted-foreground">
+    <div>
+      <div className="mb-1 pr-1 text-right text-xs text-muted-foreground">
         {row.sender_name ?? "Someone"}
-      </span>
+      </div>
       <Message message={ui} />
     </div>
   );
