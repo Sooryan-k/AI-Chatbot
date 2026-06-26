@@ -139,5 +139,10 @@ create policy "Users can update their own membership"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+-- leaving a room removes the membership (and the room from the history list).
+create policy "Users can leave rooms"
+  on room_members for delete to authenticated
+  using (auth.uid() = user_id);
+
 create index if not exists room_members_user_joined
   on room_members (user_id, joined_at desc);

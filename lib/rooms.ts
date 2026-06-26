@@ -120,6 +120,21 @@ export async function joinRoom(roomId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Leave a room: drop the membership so it no longer appears in history. */
+export async function leaveRoom(roomId: string): Promise<void> {
+  const sb = getBrowserClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return;
+  const { error } = await sb
+    .from("room_members")
+    .delete()
+    .eq("room_id", roomId)
+    .eq("user_id", user.id);
+  if (error) throw error;
+}
+
 /** Rooms the current user has joined, most recent first. */
 export async function fetchMyRooms(): Promise<RoomSummary[]> {
   const sb = getBrowserClient();

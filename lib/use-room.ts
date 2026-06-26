@@ -125,6 +125,8 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
             ...prev,
             { id: `you-${Date.now()}`, name: "You", at: Date.now() },
           ]);
+          // the joiner hears the join chime too, like everyone else.
+          playJoinSound();
         }
       })
       .on(

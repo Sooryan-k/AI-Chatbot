@@ -17,11 +17,8 @@ export function AiToggleButton({
       type="button"
       onClick={onToggle}
       aria-pressed={active}
-      title={
-        active
-          ? "AI is on — your message goes to the AI"
-          : "AI is off — chatting with people"
-      }
+      aria-label="Talk to AI"
+      title={active ? "Talk to AI (on)" : "Talk to AI (off)"}
       className={cn(
         "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors",
         active
@@ -48,7 +45,8 @@ export function AiListenButton({
       type="button"
       onClick={onToggle}
       aria-pressed={active}
-      title="Pick messages for the AI to remember"
+      aria-label="AI listen"
+      title="AI listen — pick messages for the AI to remember"
       className={cn(
         "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors",
         active

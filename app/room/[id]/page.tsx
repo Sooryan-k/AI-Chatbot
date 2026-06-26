@@ -4,13 +4,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { ModelMessage } from "ai";
 import type { User } from "@supabase/supabase-js";
-import { ArrowLeft, Bot, Check, Copy, Pencil, Share2, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  Check,
+  Copy,
+  LogOut,
+  Pencil,
+  Share2,
+  Users,
+} from "lucide-react";
 import { useUser } from "@/providers/auth-provider";
 import { getUsername } from "@/lib/profile";
 import { useRoom, type RoomParticipant } from "@/lib/use-room";
 import {
   insertRoomMessage,
   joinRoom,
+  leaveRoom,
   roomMessageToUIMessage,
   type RoomMessageRow,
 } from "@/lib/rooms";
@@ -120,6 +130,16 @@ function RoomChat({
     joinRoom(roomId).catch(console.error);
   }, [roomId]);
 
+  async function handleLeave() {
+    // remove membership so the room drops out of the history list.
+    try {
+      await leaveRoom(roomId);
+    } catch (err) {
+      console.error(err);
+    }
+    router.push("/");
+  }
+
   function handleInputChange(value: string) {
     setInput(value);
     sendTyping();
@@ -191,7 +211,8 @@ function RoomChat({
         username={username}
         onChangeName={() => setEditingName(true)}
         onShare={() => setShareOpen(true)}
-        onLeave={() => router.push("/")}
+        onHome={() => router.push("/")}
+        onLeave={handleLeave}
       />
 
       {loading ? (
@@ -265,12 +286,14 @@ function RoomHeader({
   username,
   onChangeName,
   onShare,
+  onHome,
   onLeave,
 }: {
   online: RoomParticipant[];
   username: string;
   onChangeName: () => void;
   onShare: () => void;
+  onHome: () => void;
   onLeave: () => void;
 }) {
   return (
@@ -278,12 +301,12 @@ function RoomHeader({
       <div className="flex min-w-0 items-center gap-1.5">
         <button
           type="button"
-          onClick={onLeave}
-          title="Leave room"
+          onClick={onHome}
+          title="Back to home (keeps this room in your history)"
           className="flex items-center gap-1 rounded-lg p-2 hover:bg-muted"
         >
           <ArrowLeft size={18} />
-          <span className="hidden text-sm font-medium sm:inline">Leave</span>
+          <span className="hidden text-sm font-medium sm:inline">Home</span>
         </button>
         <span className="hidden truncate font-semibold md:inline">
           Live session
@@ -309,6 +332,14 @@ function RoomHeader({
         >
           <Share2 size={15} />
           <span className="hidden sm:inline">Share</span>
+        </button>
+        <button
+          type="button"
+          onClick={onLeave}
+          title="Leave room (removes it from your history)"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+        >
+          <LogOut size={16} />
         </button>
       </div>
     </header>
