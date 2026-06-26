@@ -5,10 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import type { ModelMessage } from "ai";
 import type { User } from "@supabase/supabase-js";
 import {
-  ArrowLeft,
   Bot,
   Check,
   Copy,
+  Home,
   LogOut,
   Pencil,
   Share2,
@@ -303,10 +303,10 @@ function RoomHeader({
           type="button"
           onClick={onHome}
           title="Back to home (keeps this room in your history)"
-          className="flex items-center gap-1 rounded-lg p-2 hover:bg-muted"
+          aria-label="Back to home"
+          className="flex items-center justify-center rounded-lg p-2 hover:bg-muted"
         >
-          <ArrowLeft size={18} />
-          <span className="hidden text-sm font-medium sm:inline">Home</span>
+          <Home size={18} />
         </button>
         <span className="hidden truncate font-semibold md:inline">
           Live session

@@ -16,8 +16,14 @@ default). Deploys to Vercel.
 - Short share links: a read-only snapshot anyone can open, no account needed
 - **Voice mode**: dictate prompts and have replies read aloud, with an optional
   hands-free loop, all on free browser speech APIs (no paid TTS/STT)
-- **Live collaborative rooms**: share a link so others can join and chat with the
-  AI together in real time, with live presence, powered by Supabase Realtime
+- **Live collaborative rooms** (multiplayer AI), powered by Supabase Realtime:
+  - share a link so others can join and chat with the AI together in real time
+  - a chosen username (not your email), changeable anytime, shown live everywhere
+  - presence roster, "x joined the chat" notices, and a join chime
+  - typing indicators broadcast as people type
+  - an AI toggle: on = ask the AI, off = chat with people only
+  - "AI listen" memory: pin specific messages for the AI to read on follow-ups
+  - a Live sessions history list; Home keeps a room, Leave drops it
 - Markdown rendering with syntax-highlighted code blocks and copy buttons
 - Dark and light mode (emerald palette in both)
 
@@ -51,10 +57,13 @@ Browser (React client)
   `speechSynthesis` handles text-to-speech, wired into the chat from event
   callbacks. Nothing leaves the browser; feature-detected so it hides where
   unsupported.
-- **Live rooms:** a room (`rooms` + `room_messages` tables) is a real-time chat
-  any signed-in user can join via `/room/<id>`. Messages sync through Supabase
-  Realtime (Postgres Changes) and Presence shows who is online; the sender's
-  client calls `/api/room-reply` and persists the answer for everyone.
+- **Live rooms:** a room (`rooms`, `room_messages`, `room_members` tables) is a
+  real-time chat any signed-in user can join via `/room/<id>`. Messages sync
+  through Supabase Realtime Postgres Changes; Presence drives the online roster,
+  join notices, and live usernames; Broadcast carries typing events. A username
+  lives in auth user metadata (no email shown). When the AI toggle is on the
+  sender's client calls `/api/room-reply` (its context is the AI thread plus any
+  messages pinned via "AI listen") and persists the answer for everyone.
 
 ## Project structure
 
@@ -77,8 +86,11 @@ lib/
   use-conversations.ts     reactive chats store (optimistic + Supabase)
   use-projects.ts          reactive projects store
   share.ts                 store/fetch share snapshots, build short links
-  rooms.ts                 create/fetch/insert live-room messages
-  use-room.ts              room realtime: postgres changes + presence
+  rooms.ts                 live-room messages, membership, history
+  use-room.ts              room realtime: messages, presence, typing, notices
+  use-rooms.ts             the user's Live sessions history list
+  profile.ts               username get/set (auth user metadata)
+  sound.ts                 synthesized join chime (Web Audio)
   use-speech-recognition.ts  speech-to-text hook (Web Speech API)
   use-speech-synthesis.ts    text-to-speech hook (speechSynthesis)
   provider.ts              configures the model from env
@@ -90,7 +102,7 @@ components/
   sidebar/                 sidebar, project + chat items, account menu
   chat/                    chat container, message list, message, composer, markdown, voice buttons
   share/                   share button, dialog, shared view
-  room/                    start-session button
+  room/                    start-session button, username gate, AI controls
 proxy.ts                   auth proxy (runs before page requests)
 supabase-schema.sql        tables + Row-Level Security to run in Supabase
 ```
