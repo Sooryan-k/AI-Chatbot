@@ -1,22 +1,36 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js";
+import type {
+  RealtimeChannel,
+  RealtimePostgresInsertPayload,
+  RealtimePresenceJoinPayload,
+} from "@supabase/supabase-js";
 import { getBrowserClient } from "./supabase/client";
 import { fetchRoomMessages, type RoomMessageRow } from "./rooms";
+import { playJoinSound } from "./sound";
 
-// realtime state for one collaborative room. loads history, then streams new
-// messages via postgres changes and tracks who is online via presence. all
-// setState happens inside async/event callbacks, never synchronously in render.
+// realtime state for one collaborative room. loads history, streams new messages
+// via postgres changes, tracks who is online via presence, and surfaces join
+// notices (with a sound). a rename re-tracks presence so everyone sees the new
+// name. all setState happens inside async/event callbacks, never in render.
 
 export interface RoomParticipant {
   id: string;
   name: string;
 }
 
+// ephemeral "x joined" notice, shown inline in the message stream.
+export interface RoomNotice {
+  id: string;
+  name: string;
+  at: number;
+}
+
 export interface RoomState {
   messages: RoomMessageRow[];
   online: RoomParticipant[];
+  notices: RoomNotice[];
   loading: boolean;
   error: boolean;
 }
@@ -24,11 +38,17 @@ export interface RoomState {
 export function useRoom(roomId: string, me: RoomParticipant): RoomState {
   const [messages, setMessages] = useState<RoomMessageRow[]>([]);
   const [online, setOnline] = useState<RoomParticipant[]>([]);
+  const [notices, setNotices] = useState<RoomNotice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // ids already in state, so re-delivered inserts are not duplicated.
-  const seenRef = useRef<Set<string>>(new Set());
+  // message ids already in state, so re-delivered inserts are not duplicated.
+  const seenMessageRef = useRef<Set<string>>(new Set());
+  // presence keys already counted, so existing members and renames do not fire
+  // a "joined" notice. seeded on the first sync.
+  const presenceReadyRef = useRef(false);
+  const presenceSeenRef = useRef<Set<string>>(new Set());
+  const channelRef = useRef<RealtimeChannel | null>(null);
   // latest identity for presence.track without resubscribing.
   const meRef = useRef(me);
   useEffect(() => {
@@ -42,7 +62,7 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
     fetchRoomMessages(roomId)
       .then((rows) => {
         if (!active) return;
-        seenRef.current = new Set(rows.map((r) => r.id));
+        seenMessageRef.current = new Set(rows.map((r) => r.id));
         setMessages(rows);
         setLoading(false);
       })
@@ -55,6 +75,7 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
     const channel = sb.channel(`room:${roomId}`, {
       config: { presence: { key: meRef.current.id } },
     });
+    channelRef.current = channel;
 
     channel
       .on(
@@ -67,8 +88,8 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
         },
         (payload: RealtimePostgresInsertPayload<RoomMessageRow>) => {
           const row = payload.new;
-          if (seenRef.current.has(row.id)) return;
-          seenRef.current.add(row.id);
+          if (seenMessageRef.current.has(row.id)) return;
+          seenMessageRef.current.add(row.id);
           setMessages((prev) => [...prev, row]);
         },
       )
@@ -77,10 +98,42 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
           string,
           { name?: string }[]
         >;
-        const list: RoomParticipant[] = Object.entries(state).map(
-          ([id, metas]) => ({ id, name: metas[0]?.name ?? "Guest" }),
+        setOnline(
+          Object.entries(state).map(([id, metas]) => ({
+            id,
+            name: metas[0]?.name ?? "Guest",
+          })),
         );
-        setOnline(list);
+        // first sync: treat everyone already here as known (no join notices).
+        if (!presenceReadyRef.current) {
+          for (const id of Object.keys(state)) presenceSeenRef.current.add(id);
+          presenceReadyRef.current = true;
+        }
+      })
+      .on(
+        "presence",
+        { event: "join" },
+        (payload: RealtimePresenceJoinPayload<{ name?: string }>) => {
+          const key = payload.key;
+          // before the first sync these are existing members; just record them.
+          if (!presenceReadyRef.current) {
+            presenceSeenRef.current.add(key);
+            return;
+          }
+          if (key === meRef.current.id) return;
+          if (presenceSeenRef.current.has(key)) return; // rename, not a new join
+          presenceSeenRef.current.add(key);
+          const name = payload.newPresences[0]?.name ?? "Someone";
+          setNotices((prev) => [
+            ...prev,
+            { id: `${key}-${Date.now()}`, name, at: Date.now() },
+          ]);
+          playJoinSound();
+        },
+      )
+      .on("presence", { event: "leave" }, ({ key }: { key: string }) => {
+        // allow a rejoin to announce again later.
+        presenceSeenRef.current.delete(key);
       })
       .subscribe((status: string) => {
         if (status === "SUBSCRIBED") {
@@ -90,9 +143,16 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
 
     return () => {
       active = false;
+      channelRef.current = null;
       sb.removeChannel(channel);
     };
   }, [roomId]);
 
-  return { messages, online, loading, error };
+  // re-track presence when the username changes so the roster, message labels,
+  // and future notices all reflect the latest name for everyone.
+  useEffect(() => {
+    channelRef.current?.track({ name: me.name });
+  }, [me.name]);
+
+  return { messages, online, notices, loading, error };
 }

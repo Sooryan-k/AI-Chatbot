@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { ModelMessage } from "ai";
@@ -54,10 +54,34 @@ function RoomChat({
   username: string;
 }) {
   const me: RoomParticipant = { id: userId, name: username };
-  const { messages, online, loading, error } = useRoom(roomId, me);
+  const { messages, online, notices, loading, error } = useRoom(roomId, me);
   const [input, setInput] = useState("");
   const [generating, setGenerating] = useState(false);
   const [editingName, setEditingName] = useState(false);
+
+  // resolve each message's display name from the live presence roster (falling
+  // back to the stored name for offline users), so a rename updates everywhere.
+  const nameById = useMemo(
+    () => new Map(online.map((p) => [p.id, p.name])),
+    [online],
+  );
+
+  // merge messages and join notices into one time-ordered feed.
+  const items = useMemo<RoomFeedItem[]>(() => {
+    const msgs: RoomFeedItem[] = messages.map((row) => ({
+      kind: "message",
+      id: row.id,
+      row,
+      at: row.created_at,
+    }));
+    const joins: RoomFeedItem[] = notices.map((n) => ({
+      kind: "join",
+      id: n.id,
+      name: n.name,
+      at: n.at,
+    }));
+    return [...msgs, ...joins].sort((a, b) => a.at - b.at);
+  }, [messages, notices]);
 
   // record membership so the room shows up in the user's live-session history.
   useEffect(() => {
@@ -119,7 +143,7 @@ function RoomChat({
           Couldn&apos;t load this room. Check the link and try again.
         </div>
       ) : (
-        <RoomMessages rows={messages} typing={generating} />
+        <RoomFeed items={items} nameById={nameById} typing={generating} />
       )}
       <Composer
         value={input}
@@ -227,30 +251,49 @@ function PresenceBar({ online }: { online: RoomParticipant[] }) {
   );
 }
 
-function RoomMessages({
-  rows,
+// one entry in the room feed: a chat message or an ephemeral "x joined" notice.
+type RoomFeedItem =
+  | { kind: "message"; id: string; row: RoomMessageRow; at: number }
+  | { kind: "join"; id: string; name: string; at: number };
+
+function RoomFeed({
+  items,
+  nameById,
   typing,
 }: {
-  rows: RoomMessageRow[];
+  items: RoomFeedItem[];
+  nameById: Map<string, string>;
   typing: boolean;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [rows, typing]);
+  }, [items, typing]);
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-2 py-6 sm:px-4">
-        {rows.length === 0 && (
+        {items.length === 0 && (
           <p className="py-10 text-center text-sm text-muted-foreground">
             No messages yet. Say hello — anyone with the link can join and chat
             with the AI together.
           </p>
         )}
-        {rows.map((row) => (
-          <RoomRow key={row.id} row={row} />
-        ))}
+        {items.map((item) =>
+          item.kind === "join" ? (
+            <JoinNotice key={item.id} name={item.name} />
+          ) : (
+            <RoomRow
+              key={item.id}
+              row={item.row}
+              senderName={
+                (item.row.sender_id && nameById.get(item.row.sender_id)) ||
+                item.row.sender_name ||
+                "Someone"
+              }
+            />
+          ),
+        )}
         {typing && (
           <div className="flex gap-3">
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
@@ -273,17 +316,28 @@ function RoomMessages({
   );
 }
 
+// centered system line announcing a participant joined.
+function JoinNotice({ name }: { name: string }) {
+  return (
+    <div className="flex justify-center">
+      <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+        {name} joined the chat
+      </span>
+    </div>
+  );
+}
+
 // assistant rows render with the shared Message component; user rows add the
 // sender's username above the bubble so participants can tell who said what.
 // the name sits in a full-width block so the Message keeps its own right-aligned
 // width (wrapping it in an items-end flex would collapse the bubble).
-function RoomRow({ row }: { row: RoomMessageRow }) {
+function RoomRow({ row, senderName }: { row: RoomMessageRow; senderName: string }) {
   const ui = roomMessageToUIMessage(row);
   if (row.role === "assistant") return <Message message={ui} />;
   return (
     <div>
       <div className="mb-1 pr-1 text-right text-xs text-muted-foreground">
-        {row.sender_name ?? "Someone"}
+        {senderName}
       </div>
       <Message message={ui} />
     </div>
