@@ -160,3 +160,52 @@ export async function fetchMyRooms(): Promise<RoomSummary[]> {
       joinedAt: r.joined_at,
     }));
 }
+
+// ── Highlights (saved important answers, shared per room) ─────────────────────
+
+export interface RoomHighlightRow {
+  id: string;
+  room_id: string;
+  question: string;
+  answer: string;
+  saved_by: string | null;
+  saved_by_name: string | null;
+  created_at: number;
+}
+
+/** Save an important question + answer into the room's shared Highlights. */
+export async function saveHighlight(
+  roomId: string,
+  highlight: {
+    question: string;
+    answer: string;
+    savedByName: string | null;
+    savedById: string | null;
+  },
+): Promise<void> {
+  const sb = getBrowserClient();
+  const { error } = await sb.from("room_highlights").insert({
+    id: shortId(16),
+    room_id: roomId,
+    question: highlight.question,
+    answer: highlight.answer,
+    saved_by: highlight.savedById,
+    saved_by_name: highlight.savedByName,
+    created_at: Date.now(),
+  });
+  if (error) throw error;
+}
+
+/** A room's saved highlights, most recent first. */
+export async function fetchHighlights(
+  roomId: string,
+): Promise<RoomHighlightRow[]> {
+  const sb = getBrowserClient();
+  const { data, error } = await sb
+    .from("room_highlights")
+    .select("id, room_id, question, answer, saved_by, saved_by_name, created_at")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as RoomHighlightRow[];
+}

@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import type { ModelMessage } from "ai";
 import type { User } from "@supabase/supabase-js";
 import {
+  Bookmark,
+  BookmarkCheck,
   Bot,
   Check,
   Copy,
@@ -13,15 +16,19 @@ import {
   Pencil,
   Share2,
   Sparkles,
+  X,
 } from "lucide-react";
 import { useUser } from "@/providers/auth-provider";
 import { getUsername } from "@/lib/profile";
 import { useRoom, type RoomParticipant } from "@/lib/use-room";
+import { useRoomHighlights } from "@/lib/use-room-highlights";
 import {
   insertRoomMessage,
   joinRoom,
   leaveRoom,
   roomMessageToUIMessage,
+  saveHighlight,
+  type RoomHighlightRow,
   type RoomMessageRow,
 } from "@/lib/rooms";
 import { useShare } from "@/lib/use-share";
@@ -100,7 +107,15 @@ function RoomChat({
   const [shareOpen, setShareOpen] = useState(false);
   const [aiOn, setAiOn] = useState(true);
   const [selectMode, setSelectMode] = useState(false);
+  const [highlightsOpen, setHighlightsOpen] = useState(false);
   const share = useShare();
+  const { highlights } = useRoomHighlights(roomId);
+
+  // answers already in Highlights, so the save button can show "Saved".
+  const savedAnswers = useMemo(
+    () => new Set(highlights.map((h) => h.answer)),
+    [highlights],
+  );
 
   const memKey = `zooper-room-memory:${roomId}`;
   const [remembered, setRemembered] = useState<Set<string>>(() => {
@@ -166,6 +181,31 @@ function RoomChat({
   function handleInputChange(value: string) {
     setInput(value);
     sendTyping();
+  }
+
+  // find the question that prompted an AI answer: the nearest preceding user
+  // message (preferring one actually addressed to the AI).
+  function questionFor(answer: RoomMessageRow): string {
+    const idx = messages.findIndex((m) => m.id === answer.id);
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].role === "user" && messages[i].to_ai)
+        return messages[i].content;
+    }
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].role === "user") return messages[i].content;
+    }
+    return "";
+  }
+
+  // save an important AI answer (with its question) to the shared Highlights.
+  function handleSaveHighlight(row: RoomMessageRow) {
+    if (row.role !== "assistant" || savedAnswers.has(row.content)) return;
+    saveHighlight(roomId, {
+      question: questionFor(row) || "(no question)",
+      answer: row.content,
+      savedByName: me.name,
+      savedById: me.id,
+    }).catch(console.error);
   }
 
   // share a single message from the room as a read-only link.
@@ -252,6 +292,8 @@ function RoomChat({
         online={online}
         meId={me.id}
         username={username}
+        highlightCount={highlights.length}
+        onHighlights={() => setHighlightsOpen(true)}
         onChangeName={() => setEditingName(true)}
         onShare={() => setShareOpen(true)}
         onHome={() => router.push("/")}
@@ -272,8 +314,10 @@ function RoomChat({
           aiTyping={generating}
           selectMode={selectMode}
           remembered={remembered}
+          savedAnswers={savedAnswers}
           onToggleRemember={toggleRemembered}
           onShare={handleShareMessage}
+          onSave={handleSaveHighlight}
         />
       )}
 
@@ -324,6 +368,11 @@ function RoomChat({
         loading={share.loading}
         error={share.error}
       />
+      <HighlightsPanel
+        open={highlightsOpen}
+        onClose={() => setHighlightsOpen(false)}
+        highlights={highlights}
+      />
     </div>
   );
 }
@@ -352,6 +401,8 @@ function RoomHeader({
   online,
   meId,
   username,
+  highlightCount,
+  onHighlights,
   onChangeName,
   onShare,
   onHome,
@@ -360,6 +411,8 @@ function RoomHeader({
   online: RoomParticipant[];
   meId: string;
   username: string;
+  highlightCount: number;
+  onHighlights: () => void;
   onChangeName: () => void;
   onShare: () => void;
   onHome: () => void;
@@ -395,6 +448,20 @@ function RoomHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <button
+          type="button"
+          onClick={onHighlights}
+          title="Highlights — important answers saved by the room"
+          className="flex items-center gap-1.5 rounded-xl px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
+        >
+          <Bookmark size={16} />
+          <span className="hidden sm:inline">Highlights</span>
+          {highlightCount > 0 && (
+            <span className="rounded-full bg-emerald-500/15 px-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              {highlightCount}
+            </span>
+          )}
+        </button>
         <PresenceBar online={online} meId={meId} />
         <button
           type="button"
@@ -514,8 +581,10 @@ function RoomFeed({
   aiTyping,
   selectMode,
   remembered,
+  savedAnswers,
   onToggleRemember,
   onShare,
+  onSave,
 }: {
   items: RoomFeedItem[];
   meId: string;
@@ -523,8 +592,10 @@ function RoomFeed({
   aiTyping: boolean;
   selectMode: boolean;
   remembered: Set<string>;
+  savedAnswers: Set<string>;
   onToggleRemember: (id: string) => void;
   onShare: (row: RoomMessageRow) => void;
+  onSave: (row: RoomMessageRow) => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -569,7 +640,9 @@ function RoomFeed({
               senderName={nameOf(item.row)}
               isOwn={item.row.sender_id === meId}
               remembered={remembered.has(item.row.id)}
+              saved={savedAnswers.has(item.row.content)}
               onShare={onShare}
+              onSave={onSave}
             />
           ),
         )}
@@ -622,13 +695,17 @@ function RoomMessage({
   senderName,
   isOwn,
   remembered,
+  saved,
   onShare,
+  onSave,
 }: {
   row: RoomMessageRow;
   senderName: string;
   isOwn: boolean;
   remembered: boolean;
+  saved: boolean;
   onShare: (row: RoomMessageRow) => void;
+  onSave: (row: RoomMessageRow) => void;
 }) {
   if (row.role === "assistant") {
     return (
@@ -643,7 +720,12 @@ function RoomMessage({
           <div className="rounded-2xl rounded-tl-md border border-border bg-card px-4 py-3 shadow-sm">
             <Markdown content={row.content} />
           </div>
-          <MessageActions align="left" onShare={() => onShare(row)} />
+          <MessageActions
+            align="left"
+            saved={saved}
+            onShare={() => onShare(row)}
+            onSave={() => onSave(row)}
+          />
         </div>
       </div>
     );
@@ -681,22 +763,44 @@ function RoomMessage({
   );
 }
 
-// per-message actions (share a single message as a read-only link). visible on
-// touch, revealed on hover on desktop.
+// per-message actions: share any message as a read-only link, and (for AI
+// answers) save it to the room's Highlights. visible on touch, revealed on
+// hover on desktop.
 function MessageActions({
   align,
   onShare,
+  onSave,
+  saved,
 }: {
   align: "left" | "right";
   onShare: () => void;
+  onSave?: () => void;
+  saved?: boolean;
 }) {
   return (
     <div
       className={cn(
-        "mt-1 flex opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100",
+        "mt-1 flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100",
         align === "right" ? "justify-end" : "justify-start",
       )}
     >
+      {onSave &&
+        (saved ? (
+          <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+            <BookmarkCheck size={12} />
+            Saved
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onSave}
+            title="Save to Highlights"
+            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Bookmark size={12} />
+            Save
+          </button>
+        ))}
       <button
         type="button"
         onClick={onShare}
@@ -761,5 +865,91 @@ function SelectableRow({
         <span className="block wrap-break-word text-sm">{row.content}</span>
       </span>
     </button>
+  );
+}
+
+// the shared "Highlights" sub-room: a scrollable list of important answers
+// (question + answer) saved by anyone in the room, in a portal modal.
+function HighlightsPanel({
+  open,
+  onClose,
+  highlights,
+}: {
+  open: boolean;
+  onClose: () => void;
+  highlights: RoomHighlightRow[];
+}) {
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Bookmark size={18} className="text-emerald-600 dark:text-emerald-400" />
+              Highlights
+            </h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Important answers saved by anyone in this room.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="-mr-1 -mt-1 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {highlights.length === 0 ? (
+            <div className="flex flex-col items-center py-12 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
+                <Bookmark className="size-6" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                No highlights yet. Save an important AI answer with the bookmark
+                button to keep it here for everyone.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {highlights.map((h) => (
+                <div
+                  key={h.id}
+                  className="rounded-xl border border-border bg-background p-4"
+                >
+                  <p className="mb-2 text-sm font-medium text-muted-foreground">
+                    Q: {h.question}
+                  </p>
+                  <Markdown content={h.answer} />
+                  <p className="mt-3 border-t border-border pt-2 text-xs text-muted-foreground">
+                    Saved by {h.saved_by_name ?? "Someone"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

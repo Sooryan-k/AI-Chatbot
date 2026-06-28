@@ -146,3 +146,36 @@ create policy "Users can leave rooms"
 
 create index if not exists room_members_user_joined
   on room_members (user_id, joined_at desc);
+
+-- ── Room highlights ───────────────────────────────────────────────────────────
+-- Important AI answers saved from a live room into a shared "Highlights"
+-- collection. The question and answer are both stored, and every signed-in user
+-- can read a room's highlights (so the whole room shares them).
+create table if not exists room_highlights (
+  id            text   primary key,
+  room_id       text   references rooms(id) on delete cascade not null,
+  question      text   not null,
+  answer        text   not null,
+  saved_by      uuid   references auth.users,
+  saved_by_name text,
+  created_at    bigint not null
+);
+
+alter table room_highlights enable row level security;
+
+create policy "Signed-in users can read room highlights"
+  on room_highlights for select to authenticated using (true);
+
+create policy "Users can save highlights"
+  on room_highlights for insert to authenticated
+  with check (auth.uid() = saved_by);
+
+create policy "Users can remove their own highlights"
+  on room_highlights for delete to authenticated
+  using (auth.uid() = saved_by);
+
+create index if not exists room_highlights_room_created
+  on room_highlights (room_id, created_at desc);
+
+-- Stream saved highlights to everyone in the room in real time.
+alter publication supabase_realtime add table room_highlights;
