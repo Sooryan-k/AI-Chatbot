@@ -18,12 +18,17 @@ default). Deploys to Vercel.
   hands-free loop, all on free browser speech APIs (no paid TTS/STT)
 - **Live collaborative rooms** (multiplayer AI), powered by Supabase Realtime:
   - share a link so others can join and chat with the AI together in real time
+  - a modern group-chat UI: own messages right, others left with colored avatars
   - a chosen username (not your email), changeable anytime, shown live everywhere
   - presence roster, "x joined the chat" notices, and a join chime
   - typing indicators broadcast as people type
   - an AI toggle: on = ask the AI, off = chat with people only
   - "AI listen" memory: pin specific messages for the AI to read on follow-ups
-  - a Live sessions history list; Home keeps a room, Leave drops it
+  - shared **Highlights**: save an important answer (question + answer) for the
+    whole room to find later; toggle save/remove, syncs live
+  - share any single message as a read-only link
+  - a Live sessions history list with a live "people here" count per room; Home
+    keeps a room, Leave drops it
 - Markdown rendering with syntax-highlighted code blocks and copy buttons
 - Dark and light mode (emerald palette in both)
 
@@ -57,13 +62,16 @@ Browser (React client)
   `speechSynthesis` handles text-to-speech, wired into the chat from event
   callbacks. Nothing leaves the browser; feature-detected so it hides where
   unsupported.
-- **Live rooms:** a room (`rooms`, `room_messages`, `room_members` tables) is a
-  real-time chat any signed-in user can join via `/room/<id>`. Messages sync
-  through Supabase Realtime Postgres Changes; Presence drives the online roster,
-  join notices, and live usernames; Broadcast carries typing events. A username
+- **Live rooms:** a room (`rooms`, `room_messages`, `room_members`,
+  `room_highlights` tables) is a real-time chat any signed-in user can join via
+  `/room/<id>`. Messages sync through Supabase Realtime Postgres Changes;
+  Presence drives the online roster, join notices, and live usernames; Broadcast
+  carries typing events. A shared `rooms-lobby` presence channel lets the sidebar
+  show a live "people here" count per room without joining each one. A username
   lives in auth user metadata (no email shown). When the AI toggle is on the
   sender's client calls `/api/room-reply` (its context is the AI thread plus any
-  messages pinned via "AI listen") and persists the answer for everyone.
+  messages pinned via "AI listen") and persists the answer for everyone. Saved
+  **Highlights** (question + answer) are stored per room and stream to everyone.
 
 ## Project structure
 
@@ -86,9 +94,12 @@ lib/
   use-conversations.ts     reactive chats store (optimistic + Supabase)
   use-projects.ts          reactive projects store
   share.ts                 store/fetch share snapshots, build short links
-  rooms.ts                 live-room messages, membership, history
+  rooms.ts                 live-room messages, membership, history, highlights
   use-room.ts              room realtime: messages, presence, typing, notices
   use-rooms.ts             the user's Live sessions history list
+  use-room-highlights.ts   a room's shared Highlights (realtime)
+  use-live-counts.ts       live "people here" count per room (lobby presence)
+  room-presence.ts         shared rooms-lobby channel name
   profile.ts               username get/set (auth user metadata)
   sound.ts                 synthesized join chime (Web Audio)
   use-speech-recognition.ts  speech-to-text hook (Web Speech API)
@@ -102,7 +113,7 @@ components/
   sidebar/                 sidebar, project + chat items, account menu
   chat/                    chat container, message list, message, composer, markdown, voice buttons
   share/                   share button, dialog, shared view
-  room/                    start-session button, username gate, AI controls
+  room/                    start-session button, username gate, AI controls, highlights
 proxy.ts                   auth proxy (runs before page requests)
 supabase-schema.sql        tables + Row-Level Security to run in Supabase
 ```
@@ -113,10 +124,11 @@ supabase-schema.sql        tables + Row-Level Security to run in Supabase
 
 In your Supabase project, open **SQL Editor** and run the contents of
 [`supabase-schema.sql`](supabase-schema.sql). This creates the `projects`,
-`conversations`, `shared_chats`, `rooms`, `room_messages`, and `room_members`
-tables with Row-Level Security, and enables Supabase Realtime on `room_messages`
-(required for live collaborative rooms). Usernames for live chat are stored in
-Supabase auth user metadata, so they need no table.
+`conversations`, `shared_chats`, `rooms`, `room_messages`, `room_members`, and
+`room_highlights` tables with Row-Level Security, and enables Supabase Realtime
+on `room_messages` and `room_highlights` (required for live rooms and shared
+Highlights). Usernames for live chat are stored in Supabase auth user metadata,
+so they need no table.
 
 ### 2. Configure auth redirect URLs
 
