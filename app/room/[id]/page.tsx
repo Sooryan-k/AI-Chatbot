@@ -113,11 +113,15 @@ function RoomChat({
   const share = useShare();
   const { highlights } = useRoomHighlights(roomId);
 
-  // answers already in Highlights, so the save button can show "Saved".
-  const savedAnswers = useMemo(
-    () => new Set(highlights.map((h) => h.answer)),
-    [highlights],
-  );
+  // map of answer text -> id of MY highlight for it, so the save button can
+  // toggle: click to save, click again to remove (only my own highlights).
+  const myHighlights = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const h of highlights) {
+      if (h.saved_by === userId) map.set(h.answer, h.id);
+    }
+    return map;
+  }, [highlights, userId]);
 
   const memKey = `zooper-room-memory:${roomId}`;
   const [remembered, setRemembered] = useState<Set<string>>(() => {
@@ -201,7 +205,7 @@ function RoomChat({
 
   // save an important AI answer (with its question) to the shared Highlights.
   function handleSaveHighlight(row: RoomMessageRow) {
-    if (row.role !== "assistant" || savedAnswers.has(row.content)) return;
+    if (row.role !== "assistant" || myHighlights.has(row.content)) return;
     saveHighlight(roomId, {
       question: questionFor(row) || "(no question)",
       answer: row.content,
@@ -322,10 +326,11 @@ function RoomChat({
           aiTyping={generating}
           selectMode={selectMode}
           remembered={remembered}
-          savedAnswers={savedAnswers}
+          myHighlights={myHighlights}
           onToggleRemember={toggleRemembered}
           onShare={handleShareMessage}
           onSave={handleSaveHighlight}
+          onRemove={handleRemoveHighlight}
         />
       )}
 
@@ -591,10 +596,11 @@ function RoomFeed({
   aiTyping,
   selectMode,
   remembered,
-  savedAnswers,
+  myHighlights,
   onToggleRemember,
   onShare,
   onSave,
+  onRemove,
 }: {
   items: RoomFeedItem[];
   meId: string;
@@ -602,10 +608,11 @@ function RoomFeed({
   aiTyping: boolean;
   selectMode: boolean;
   remembered: Set<string>;
-  savedAnswers: Set<string>;
+  myHighlights: Map<string, string>;
   onToggleRemember: (id: string) => void;
   onShare: (row: RoomMessageRow) => void;
   onSave: (row: RoomMessageRow) => void;
+  onRemove: (id: string) => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -650,9 +657,10 @@ function RoomFeed({
               senderName={nameOf(item.row)}
               isOwn={item.row.sender_id === meId}
               remembered={remembered.has(item.row.id)}
-              saved={savedAnswers.has(item.row.content)}
+              savedId={myHighlights.get(item.row.content)}
               onShare={onShare}
               onSave={onSave}
+              onRemove={onRemove}
             />
           ),
         )}
@@ -705,17 +713,19 @@ function RoomMessage({
   senderName,
   isOwn,
   remembered,
-  saved,
+  savedId,
   onShare,
   onSave,
+  onRemove,
 }: {
   row: RoomMessageRow;
   senderName: string;
   isOwn: boolean;
   remembered: boolean;
-  saved: boolean;
+  savedId: string | undefined;
   onShare: (row: RoomMessageRow) => void;
   onSave: (row: RoomMessageRow) => void;
+  onRemove: (id: string) => void;
 }) {
   if (row.role === "assistant") {
     return (
@@ -732,9 +742,10 @@ function RoomMessage({
           </div>
           <MessageActions
             align="left"
-            saved={saved}
+            saved={!!savedId}
             onShare={() => onShare(row)}
             onSave={() => onSave(row)}
+            onUnsave={() => savedId && onRemove(savedId)}
           />
         </div>
       </div>
@@ -780,11 +791,13 @@ function MessageActions({
   align,
   onShare,
   onSave,
+  onUnsave,
   saved,
 }: {
   align: "left" | "right";
   onShare: () => void;
   onSave?: () => void;
+  onUnsave?: () => void;
   saved?: boolean;
 }) {
   return (
@@ -796,10 +809,17 @@ function MessageActions({
     >
       {onSave &&
         (saved ? (
-          <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-            <BookmarkCheck size={12} />
-            Saved
-          </span>
+          <button
+            type="button"
+            onClick={onUnsave}
+            title="Saved to Highlights — click to remove"
+            className="group/save flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-emerald-600 transition-colors hover:bg-red-500/10 hover:text-red-500 dark:text-emerald-400"
+          >
+            <BookmarkCheck size={12} className="group-hover/save:hidden" />
+            <Bookmark size={12} className="hidden group-hover/save:block" />
+            <span className="group-hover/save:hidden">Saved</span>
+            <span className="hidden group-hover/save:inline">Remove</span>
+          </button>
         ) : (
           <button
             type="button"
