@@ -10,7 +10,7 @@ default). Deploys to Vercel.
 
 - ChatGPT-style layout: sidebar, chat area, composer, responsive on phone to desktop
 - Streaming responses, token by token, with a Stop button
-- Email magic-link auth (Supabase) so chats sync across devices
+- Sign in with Google or an email magic link (Supabase Auth) so chats sync across devices
 - Cloud storage in Supabase PostgreSQL with Row-Level Security (each user sees only their own data)
 - Projects to group related chats, plus rename and delete
 - Short share links: a read-only snapshot anyone can open, no account needed
@@ -41,7 +41,7 @@ and Supabase (for auth + storage). The Next.js server is thin.
 Browser (React client)
   ├─ POST /api/chat ─────────────► model provider (OpenRouter)   streaming reply
   ├─ Supabase JS (anon key) ─────► Supabase Postgres              chats, projects, shares
-  └─ magic-link sign-in ─────────► Supabase Auth                  session cookie
+  └─ Google / magic-link sign-in ► Supabase Auth                  session cookie
 ```
 
 - **Auth gate:** `proxy.ts` (Next 16 renamed `middleware.ts`) runs on page
@@ -79,8 +79,8 @@ Browser (React client)
 app/
   api/chat/route.ts        streaming chat endpoint (model provider)
   api/room-reply/route.ts  non-streaming reply for live rooms
-  auth/login/page.tsx      magic-link sign-in screen
-  auth/callback/route.ts   exchanges the magic-link code for a session
+  auth/login/page.tsx      Google + magic-link sign-in screen
+  auth/callback/route.ts   exchanges the OAuth / magic-link code for a session
   auth/logout/route.ts     signs out
   c/[id]/page.tsx          a single conversation
   room/[id]/page.tsx       live collaborative room (realtime + presence)
@@ -140,13 +140,22 @@ http://localhost:3000/auth/callback
 https://your-app.vercel.app/auth/callback
 ```
 
-### 3. Custom email sender (recommended)
+### 3. Enable Google sign-in (optional)
+
+To offer "Continue with Google", create an OAuth client in **Google Cloud
+Console** (Web application) with the redirect URI
+`https://<project-ref>.supabase.co/auth/v1/callback`, then enable the **Google**
+provider under **Authentication → Providers** in Supabase and paste the client
+id + secret. The login screen falls back to the email magic link if Google is
+not configured.
+
+### 4. Custom email sender (recommended for magic links)
 
 Supabase's built-in mailer is rate-limited to a few emails per hour. To send
 magic links reliably, add custom SMTP under **Authentication → SMTP Settings**
 (for example Gmail SMTP, or Resend with a verified domain).
 
-### 4. Environment variables
+### 5. Environment variables
 
 Settings live in `.env.local` (gitignored). You need the model provider and
 Supabase values:
