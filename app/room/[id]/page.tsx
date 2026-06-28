@@ -16,6 +16,7 @@ import {
   Pencil,
   Share2,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import { useUser } from "@/providers/auth-provider";
@@ -23,6 +24,7 @@ import { getUsername } from "@/lib/profile";
 import { useRoom, type RoomParticipant } from "@/lib/use-room";
 import { useRoomHighlights } from "@/lib/use-room-highlights";
 import {
+  deleteHighlight,
   insertRoomMessage,
   joinRoom,
   leaveRoom,
@@ -208,6 +210,12 @@ function RoomChat({
     }).catch(console.error);
   }
 
+  // remove a highlight (RLS only allows removing your own). realtime drops it
+  // from everyone's panel.
+  function handleRemoveHighlight(id: string) {
+    deleteHighlight(id).catch(console.error);
+  }
+
   // share a single message from the room as a read-only link.
   function handleShareMessage(row: RoomMessageRow) {
     const who =
@@ -372,6 +380,8 @@ function RoomChat({
         open={highlightsOpen}
         onClose={() => setHighlightsOpen(false)}
         highlights={highlights}
+        myId={me.id}
+        onRemove={handleRemoveHighlight}
       />
     </div>
   );
@@ -874,10 +884,14 @@ function HighlightsPanel({
   open,
   onClose,
   highlights,
+  myId,
+  onRemove,
 }: {
   open: boolean;
   onClose: () => void;
   highlights: RoomHighlightRow[];
+  myId: string;
+  onRemove: (id: string) => void;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -940,9 +954,22 @@ function HighlightsPanel({
                     Q: {h.question}
                   </p>
                   <Markdown content={h.answer} />
-                  <p className="mt-3 border-t border-border pt-2 text-xs text-muted-foreground">
-                    Saved by {h.saved_by_name ?? "Someone"}
-                  </p>
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-2">
+                    <span className="text-xs text-muted-foreground">
+                      Saved by {h.saved_by_name ?? "Someone"}
+                    </span>
+                    {h.saved_by === myId && (
+                      <button
+                        type="button"
+                        onClick={() => onRemove(h.id)}
+                        title="Remove from Highlights"
+                        className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+                      >
+                        <Trash2 size={13} />
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js";
+import type {
+  RealtimePostgresDeletePayload,
+  RealtimePostgresInsertPayload,
+} from "@supabase/supabase-js";
 import { getBrowserClient } from "./supabase/client";
 import { fetchHighlights, type RoomHighlightRow } from "./rooms";
 
@@ -43,6 +46,18 @@ export function useRoomHighlights(roomId: string): {
           if (seenRef.current.has(row.id)) return;
           seenRef.current.add(row.id);
           setHighlights((prev) => [row, ...prev]); // newest first
+        },
+      )
+      // no room filter on DELETE: the old record only carries the primary key
+      // under the default replica identity, so we match by id locally instead.
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "room_highlights" },
+        (payload: RealtimePostgresDeletePayload<RoomHighlightRow>) => {
+          const id = payload.old.id;
+          if (!id) return;
+          seenRef.current.delete(id);
+          setHighlights((prev) => prev.filter((h) => h.id !== id));
         },
       )
       .subscribe();

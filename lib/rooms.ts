@@ -196,6 +196,13 @@ export async function saveHighlight(
   if (error) throw error;
 }
 
+/** Remove a saved highlight. RLS only lets the user who saved it delete it. */
+export async function deleteHighlight(id: string): Promise<void> {
+  const sb = getBrowserClient();
+  const { error } = await sb.from("room_highlights").delete().eq("id", id);
+  if (error) throw error;
+}
+
 /** A room's saved highlights, most recent first. */
 export async function fetchHighlights(
   roomId: string,
