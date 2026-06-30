@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { useUser } from "@/providers/auth-provider";
+import { cn } from "@/lib/utils";
 import { TopBar } from "./top-bar";
 
 function FullScreenSpinner() {
@@ -53,23 +54,27 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
-      {/* Desktop sidebar */}
-      <aside className="hidden w-72 shrink-0 border-r border-border lg:block">
-        <Sidebar />
-      </aside>
-
-      {/* Mobile drawer */}
+      {/* dim overlay behind the mobile drawer */}
       {open && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute left-0 top-0 h-full w-72 max-w-[85%] border-r border-border shadow-xl">
-            <Sidebar onClose={() => setOpen(false)} />
-          </div>
-        </div>
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden
+        />
       )}
+
+      {/* one sidebar: a static column on desktop, a slide-in drawer on mobile.
+          rendering it once (not a hidden desktop copy plus a drawer copy) avoids
+          mounting its realtime subscriptions and data hooks twice. */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-72 max-w-[85%] shrink-0 border-r border-border bg-sidebar shadow-xl transition-transform duration-200",
+          "lg:static lg:z-auto lg:max-w-none lg:shadow-none lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+        )}
+      >
+        <Sidebar onClose={() => setOpen(false)} />
+      </aside>
 
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">

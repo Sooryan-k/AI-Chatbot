@@ -66,7 +66,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto rounded-lg p-2 hover:bg-emerald-500/10"
+            className="ml-auto rounded-lg p-2 hover:bg-emerald-500/10 lg:hidden"
             aria-label="Close sidebar"
           >
             <PanelLeftClose size={18} />
