@@ -42,6 +42,15 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // a signed-in user has no reason to see the login page; send them home.
+  // (the /auth/callback and /auth/logout routes still run normally.)
+  if (user && pathname === "/auth/login") {
+    const homeUrl = request.nextUrl.clone();
+    homeUrl.pathname = "/";
+    homeUrl.search = "";
+    return NextResponse.redirect(homeUrl);
+  }
+
   // auth and share pages are reachable while signed out. api is not matched
   // here at all (see the matcher) and authenticates itself.
   const isPublic =
