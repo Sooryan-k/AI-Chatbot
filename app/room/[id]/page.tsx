@@ -434,20 +434,27 @@ function RoomHeader({
   onLeave: () => void;
 }) {
   return (
-    <header className="z-10 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/70 px-2 backdrop-blur-xl sm:px-4">
-      <div className="flex min-w-0 items-center gap-1.5">
+    <header className="z-10 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/70 px-2.5 backdrop-blur-xl sm:px-4">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        {/* clear, elevated home button, set apart from the room title */}
         <button
           type="button"
           onClick={onHome}
           title="Back to home (keeps this room in your history)"
           aria-label="Back to home"
-          className="flex items-center justify-center rounded-xl p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-2 text-sm font-medium shadow-sm transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-300"
         >
-          <Home size={18} />
+          <Home size={16} />
+          <span className="hidden sm:inline">Home</span>
         </button>
+
+        <div className="hidden h-7 w-px bg-border sm:block" />
+
         <div className="flex min-w-0 flex-col">
           <div className="flex items-center gap-2">
-            <span className="hidden font-semibold sm:inline">Live session</span>
+            <span className="hidden truncate font-semibold sm:inline">
+              Live session
+            </span>
             <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
@@ -482,10 +489,11 @@ function RoomHeader({
           type="button"
           onClick={onChangeName}
           title={`Change your username (${username})`}
-          className="flex items-center gap-1.5 rounded-xl px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
+          className="flex items-center gap-1.5 rounded-xl py-1 pl-1 pr-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:pr-2"
         >
-          <span className="max-w-16 truncate sm:max-w-28">{username}</span>
-          <Pencil size={13} className="shrink-0" />
+          <Avatar name={username} className="h-7 w-7 text-xs" />
+          <span className="hidden max-w-28 truncate sm:inline">{username}</span>
+          <Pencil size={13} className="hidden shrink-0 sm:block" />
         </button>
         <button
           type="button"
