@@ -25,7 +25,13 @@ import { getUsername } from "@/lib/profile";
 import { useRoom, type RoomParticipant } from "@/lib/use-room";
 import { useRoomHighlights } from "@/lib/use-room-highlights";
 import { useFacilitator } from "@/lib/use-facilitator";
-import { buildTranscript, generateRecap } from "@/lib/facilitator";
+import {
+  buildTranscript,
+  generateRecap,
+  runFacilitatorTool,
+  suggestTitle,
+  type FacilitatorTool,
+} from "@/lib/facilitator";
 import { FacilitatorPanel } from "@/components/room/facilitator-panel";
 import {
   deleteHighlight,
@@ -34,6 +40,7 @@ import {
   leaveRoom,
   roomMessageToUIMessage,
   saveHighlight,
+  updateRoomTitle,
   type RoomHighlightRow,
   type RoomMessageRow,
 } from "@/lib/rooms";
@@ -45,6 +52,20 @@ import { Modal } from "@/components/ui/modal";
 import { ShareDialog } from "@/components/share/share-dialog";
 import { UsernameDialog, UsernameGate } from "@/components/room/username";
 import { AiListenButton, AiToggleButton } from "@/components/room/room-controls";
+
+// the reader's language as a readable English name (e.g. "Spanish"), used to
+// localize the per-requester Facilitator tools. falls back to English.
+function browserLanguage(): string {
+  if (typeof navigator === "undefined") return "English";
+  const tag = navigator.language || "en";
+  try {
+    const base = tag.split("-")[0];
+    const name = new Intl.DisplayNames([tag], { type: "language" }).of(base);
+    return name || "English";
+  } catch {
+    return "English";
+  }
+}
 
 // a stable, distinct color per participant derived from their name.
 function avatarColor(name: string): string {
@@ -104,8 +125,16 @@ function RoomChat({
 }) {
   const router = useRouter();
   const me: RoomParticipant = { id: userId, name: username };
-  const { messages, online, notices, typingUsers, sendTyping, loading, error } =
-    useRoom(roomId, me);
+  const {
+    messages,
+    online,
+    notices,
+    typingUsers,
+    sendTyping,
+    roomTitle,
+    loading,
+    error,
+  } = useRoom(roomId, me);
 
   const [input, setInput] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -207,6 +236,26 @@ function RoomChat({
     const transcript = buildTranscript(messages, nameById);
     if (!transcript.trim()) throw new Error("No conversation to summarize yet.");
     await generateRecap(roomId, transcript, me.name, me.id);
+  }
+
+  // run an on-demand tool (catch-up / risks / next steps). the result is shown
+  // to this requester only, localized to their browser language.
+  async function handleTool(mode: FacilitatorTool): Promise<string> {
+    const transcript = buildTranscript(messages, nameById);
+    if (!transcript.trim()) throw new Error("No conversation yet.");
+    return runFacilitatorTool(transcript, mode, {
+      lang: browserLanguage(),
+      username: me.name,
+    });
+  }
+
+  // ask the agent to name the room, then rename it for everyone (realtime).
+  async function handleNameRoom(): Promise<string> {
+    const transcript = buildTranscript(messages, nameById);
+    if (!transcript.trim()) throw new Error("No conversation to name yet.");
+    const title = await suggestTitle(transcript);
+    await updateRoomTitle(roomId, title);
+    return title;
   }
 
   async function handleLeave() {
@@ -338,6 +387,7 @@ function RoomChat({
         online={online}
         meId={me.id}
         username={username}
+        roomTitle={roomTitle}
         highlightCount={highlights.length}
         hasUnseenRecap={hasUnseenRecap}
         onFacilitator={openFacilitator}
@@ -431,6 +481,8 @@ function RoomChat({
         reports={reports}
         tasks={tasks}
         onGenerate={handleGenerateRecap}
+        onTool={handleTool}
+        onNameRoom={handleNameRoom}
       />
     </div>
   );
@@ -460,6 +512,7 @@ function RoomHeader({
   online,
   meId,
   username,
+  roomTitle,
   highlightCount,
   hasUnseenRecap,
   onFacilitator,
@@ -472,6 +525,7 @@ function RoomHeader({
   online: RoomParticipant[];
   meId: string;
   username: string;
+  roomTitle: string | null;
   highlightCount: number;
   hasUnseenRecap: boolean;
   onFacilitator: () => void;
@@ -500,8 +554,8 @@ function RoomHeader({
 
         <div className="flex min-w-0 flex-col">
           <div className="flex items-center gap-2">
-            <span className="hidden truncate font-semibold sm:inline">
-              Live session
+            <span className="hidden max-w-[16rem] truncate font-semibold sm:inline">
+              {roomTitle && roomTitle !== "Live chat" ? roomTitle : "Live session"}
             </span>
             <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
               <span className="relative flex h-1.5 w-1.5">

@@ -86,6 +86,46 @@ export async function generateRecap(
   if (error) throw error;
 }
 
+export type FacilitatorTool = "catchup" | "risks" | "nextsteps";
+
+// run an on-demand facilitator tool (catch-up / risks / next steps). the result
+// is markdown prose shown to the requester only (not stored). lang localizes it.
+export async function runFacilitatorTool(
+  transcript: string,
+  mode: FacilitatorTool,
+  opts?: { lang?: string; username?: string },
+): Promise<string> {
+  const res = await fetch("/api/facilitator", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      transcript,
+      mode,
+      lang: opts?.lang,
+      username: opts?.username,
+    }),
+  });
+  const data = (await res.json()) as { text?: string; error?: string };
+  if (!res.ok || !data.text) {
+    throw new Error(data.error || "Couldn't run that.");
+  }
+  return data.text;
+}
+
+// suggest a short title for the room from its conversation.
+export async function suggestTitle(transcript: string): Promise<string> {
+  const res = await fetch("/api/facilitator", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ transcript, mode: "title" }),
+  });
+  const data = (await res.json()) as { title?: string; error?: string };
+  if (!res.ok || !data.title) {
+    throw new Error(data.error || "Couldn't name the room.");
+  }
+  return data.title;
+}
+
 export async function fetchReports(roomId: string): Promise<RoomReportRow[]> {
   const sb = getBrowserClient();
   const { data, error } = await sb

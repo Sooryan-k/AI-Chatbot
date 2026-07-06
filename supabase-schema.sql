@@ -100,6 +100,13 @@ create policy "Signed-in users can read rooms"
 create policy "Users can create rooms they host"
   on rooms for insert to authenticated with check (auth.uid() = host_id);
 
+-- Anyone in a room can rename it (the Facilitator's "name this room").
+create policy "Signed-in users can rename rooms"
+  on rooms for update to authenticated using (true) with check (true);
+
+-- Stream room renames so everyone's header/history updates live.
+alter publication supabase_realtime add table rooms;
+
 create policy "Signed-in users can read room messages"
   on room_messages for select to authenticated using (true);
 

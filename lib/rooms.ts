@@ -46,6 +46,28 @@ export async function createRoom(title = "Live chat"): Promise<string> {
   return id;
 }
 
+/** The room's current title (shown in the header and history list). */
+export async function fetchRoomTitle(roomId: string): Promise<string | null> {
+  const sb = getBrowserClient();
+  const { data, error } = await sb
+    .from("rooms")
+    .select("title")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.title as string | undefined) ?? null;
+}
+
+/** Rename a room (used by the Facilitator's "name this room"). */
+export async function updateRoomTitle(
+  roomId: string,
+  title: string,
+): Promise<void> {
+  const sb = getBrowserClient();
+  const { error } = await sb.from("rooms").update({ title }).eq("id", roomId);
+  if (error) throw error;
+}
+
 /** Load a room's full message history, oldest first. */
 export async function fetchRoomMessages(
   roomId: string,

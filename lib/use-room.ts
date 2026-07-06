@@ -4,10 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   RealtimeChannel,
   RealtimePostgresInsertPayload,
+  RealtimePostgresUpdatePayload,
   RealtimePresenceJoinPayload,
 } from "@supabase/supabase-js";
 import { getBrowserClient } from "./supabase/client";
-import { fetchRoomMessages, type RoomMessageRow } from "./rooms";
+import {
+  fetchRoomMessages,
+  fetchRoomTitle,
+  type RoomMessageRow,
+} from "./rooms";
 import { ROOMS_LOBBY_CHANNEL } from "./room-presence";
 import { playJoinSound } from "./sound";
 
@@ -36,6 +41,8 @@ export interface RoomState {
   typingUsers: string[];
   /** Broadcast that the current user is typing (throttled internally). */
   sendTyping: () => void;
+  /** The room's title (updates live when it is renamed). */
+  roomTitle: string | null;
   loading: boolean;
   error: boolean;
 }
@@ -45,6 +52,7 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
   const [online, setOnline] = useState<RoomParticipant[]>([]);
   const [notices, setNotices] = useState<RoomNotice[]>([]);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [roomTitle, setRoomTitle] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -85,12 +93,30 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
         setLoading(false);
       });
 
+    fetchRoomTitle(roomId)
+      .then((title) => {
+        if (active) setRoomTitle(title);
+      })
+      .catch(() => {});
+
     const channel = sb.channel(`room:${roomId}`, {
       config: { presence: { key: meRef.current.id } },
     });
     channelRef.current = channel;
 
     channel
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "rooms",
+          filter: `id=eq.${roomId}`,
+        },
+        (payload: RealtimePostgresUpdatePayload<{ title: string }>) => {
+          setRoomTitle(payload.new.title);
+        },
+      )
       .on(
         "postgres_changes",
         {
@@ -216,5 +242,14 @@ export function useRoom(roomId: string, me: RoomParticipant): RoomState {
     });
   }, []);
 
-  return { messages, online, notices, typingUsers, sendTyping, loading, error };
+  return {
+    messages,
+    online,
+    notices,
+    typingUsers,
+    sendTyping,
+    roomTitle,
+    loading,
+    error,
+  };
 }

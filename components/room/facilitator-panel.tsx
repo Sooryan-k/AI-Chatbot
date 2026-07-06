@@ -5,11 +5,16 @@ import { createPortal } from "react-dom";
 import {
   Check,
   ChevronDown,
+  Copy,
   Download,
+  History,
+  Lightbulb,
   ListChecks,
   Loader2,
   Plus,
   RefreshCw,
+  ShieldAlert,
+  Tag,
   Trash2,
   Wand2,
   X,
@@ -21,6 +26,7 @@ import {
   addTasks,
   deleteTask,
   toggleTask,
+  type FacilitatorTool,
   type RoomReportRow,
   type RoomTaskRow,
 } from "@/lib/facilitator";
@@ -28,6 +34,12 @@ import {
 // the shared Facilitator panel: an AI recap of the conversation plus a
 // collaborative action-item checklist. generation is driven by the parent
 // (which owns the room transcript); everything else is handled here.
+const TOOL_LABEL: Record<FacilitatorTool, string> = {
+  catchup: "Catch me up",
+  risks: "Risks & blind spots",
+  nextsteps: "Next steps",
+};
+
 export function FacilitatorPanel({
   open,
   onClose,
@@ -35,6 +47,8 @@ export function FacilitatorPanel({
   reports,
   tasks,
   onGenerate,
+  onTool,
+  onNameRoom,
 }: {
   open: boolean;
   onClose: () => void;
@@ -42,11 +56,49 @@ export function FacilitatorPanel({
   reports: RoomReportRow[];
   tasks: RoomTaskRow[];
   onGenerate: () => Promise<void>;
+  onTool: (mode: FacilitatorTool) => Promise<string>;
+  onNameRoom: () => Promise<string>;
 }) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [newTask, setNewTask] = useState("");
+  // ephemeral, per-requester tool output (catch-up / risks / next steps).
+  const [busyTool, setBusyTool] = useState<FacilitatorTool | "name" | null>(
+    null,
+  );
+  const [toolResult, setToolResult] = useState<{
+    label: string;
+    text: string;
+  } | null>(null);
+
+  async function runTool(mode: FacilitatorTool) {
+    if (busyTool) return;
+    setBusyTool(mode);
+    setError(null);
+    try {
+      const text = await onTool(mode);
+      setToolResult({ label: TOOL_LABEL[mode], text });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't run that.");
+    } finally {
+      setBusyTool(null);
+    }
+  }
+
+  async function nameRoom() {
+    if (busyTool) return;
+    setBusyTool("name");
+    setError(null);
+    try {
+      const title = await onNameRoom();
+      setToolResult({ label: "Room renamed", text: `Renamed to **${title}**.` });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't name the room.");
+    } finally {
+      setBusyTool(null);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -177,8 +229,78 @@ export function FacilitatorPanel({
           )}
         </div>
 
+        {/* on-demand tools (results are shown to you only) */}
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-5 py-2.5">
+          <ToolButton
+            icon={<History size={14} />}
+            label="Catch me up"
+            busy={busyTool === "catchup"}
+            disabled={!!busyTool}
+            onClick={() => runTool("catchup")}
+          />
+          <ToolButton
+            icon={<ShieldAlert size={14} />}
+            label="Risks"
+            busy={busyTool === "risks"}
+            disabled={!!busyTool}
+            onClick={() => runTool("risks")}
+          />
+          <ToolButton
+            icon={<Lightbulb size={14} />}
+            label="Next steps"
+            busy={busyTool === "nextsteps"}
+            disabled={!!busyTool}
+            onClick={() => runTool("nextsteps")}
+          />
+          <ToolButton
+            icon={<Tag size={14} />}
+            label="Name room"
+            busy={busyTool === "name"}
+            disabled={!!busyTool}
+            onClick={nameRoom}
+          />
+        </div>
+
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+
+          {toolResult && (
+            <div className="mb-5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                  {toolResult.label}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigator.clipboard
+                        ?.writeText(toolResult.text)
+                        .catch(() => {})
+                    }
+                    title="Copy"
+                    className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <Copy size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setToolResult(null)}
+                    aria-label="Dismiss"
+                    className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+              <div className="text-sm">
+                <Markdown content={toolResult.text} />
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Only you can see this.
+              </p>
+            </div>
+          )}
 
           {!latest ? (
             <div className="flex flex-col items-center py-10 text-center">
@@ -374,6 +496,32 @@ export function FacilitatorPanel({
       </div>
     </div>,
     document.body,
+  );
+}
+
+function ToolButton({
+  icon,
+  label,
+  busy,
+  disabled,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 disabled:opacity-50"
+    >
+      {busy ? <Loader2 size={14} className="animate-spin" /> : icon}
+      {label}
+    </button>
   );
 }
 
