@@ -17,12 +17,16 @@ import {
   Share2,
   Sparkles,
   Trash2,
+  Wand2,
   X,
 } from "lucide-react";
 import { useUser } from "@/providers/auth-provider";
 import { getUsername } from "@/lib/profile";
 import { useRoom, type RoomParticipant } from "@/lib/use-room";
 import { useRoomHighlights } from "@/lib/use-room-highlights";
+import { useFacilitator } from "@/lib/use-facilitator";
+import { buildTranscript, generateRecap } from "@/lib/facilitator";
+import { FacilitatorPanel } from "@/components/room/facilitator-panel";
 import {
   deleteHighlight,
   insertRoomMessage,
@@ -110,8 +114,24 @@ function RoomChat({
   const [aiOn, setAiOn] = useState(true);
   const [selectMode, setSelectMode] = useState(false);
   const [highlightsOpen, setHighlightsOpen] = useState(false);
+  const [facilitatorOpen, setFacilitatorOpen] = useState(false);
+  const [seenRecaps, setSeenRecaps] = useState(0);
   const share = useShare();
   const { highlights } = useRoomHighlights(roomId);
+  const {
+    reports,
+    tasks,
+    liveNotices: recapNotices,
+  } = useFacilitator(roomId);
+
+  // a dot on the Facilitator button when a recap arrived that this user has not
+  // opened yet (cleared when the panel is opened).
+  const hasUnseenRecap = recapNotices.length > seenRecaps;
+
+  function openFacilitator() {
+    setSeenRecaps(recapNotices.length);
+    setFacilitatorOpen(true);
+  }
 
   // map of answer text -> id of MY highlight for it, so the save button can
   // toggle: click to save, click again to remove (only my own highlights).
@@ -168,12 +188,26 @@ function RoomChat({
       name: n.name,
       at: n.at,
     }));
-    return [...msgs, ...joins].sort((a, b) => a.at - b.at);
-  }, [messages, notices]);
+    const facs: RoomFeedItem[] = recapNotices.map((n) => ({
+      kind: "system",
+      id: n.id,
+      text: "Facilitator posted a recap",
+      at: n.at,
+    }));
+    return [...msgs, ...joins, ...facs].sort((a, b) => a.at - b.at);
+  }, [messages, notices, recapNotices]);
 
   useEffect(() => {
     joinRoom(roomId).catch(console.error);
   }, [roomId]);
+
+  // build the transcript from the current conversation and ask the Facilitator
+  // agent for a recap, shared with the whole room.
+  async function handleGenerateRecap() {
+    const transcript = buildTranscript(messages, nameById);
+    if (!transcript.trim()) throw new Error("No conversation to summarize yet.");
+    await generateRecap(roomId, transcript, me.name, me.id);
+  }
 
   async function handleLeave() {
     try {
@@ -305,6 +339,8 @@ function RoomChat({
         meId={me.id}
         username={username}
         highlightCount={highlights.length}
+        hasUnseenRecap={hasUnseenRecap}
+        onFacilitator={openFacilitator}
         onHighlights={() => setHighlightsOpen(true)}
         onChangeName={() => setEditingName(true)}
         onShare={() => setShareOpen(true)}
@@ -388,6 +424,14 @@ function RoomChat({
         myId={me.id}
         onRemove={handleRemoveHighlight}
       />
+      <FacilitatorPanel
+        open={facilitatorOpen}
+        onClose={() => setFacilitatorOpen(false)}
+        roomId={roomId}
+        reports={reports}
+        tasks={tasks}
+        onGenerate={handleGenerateRecap}
+      />
     </div>
   );
 }
@@ -417,6 +461,8 @@ function RoomHeader({
   meId,
   username,
   highlightCount,
+  hasUnseenRecap,
+  onFacilitator,
   onHighlights,
   onChangeName,
   onShare,
@@ -427,6 +473,8 @@ function RoomHeader({
   meId: string;
   username: string;
   highlightCount: number;
+  hasUnseenRecap: boolean;
+  onFacilitator: () => void;
   onHighlights: () => void;
   onChangeName: () => void;
   onShare: () => void;
@@ -470,6 +518,18 @@ function RoomHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <button
+          type="button"
+          onClick={onFacilitator}
+          title="Facilitator — AI recap, decisions & action items"
+          className="relative flex items-center gap-1.5 rounded-xl px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
+        >
+          <Wand2 size={16} />
+          <span className="hidden sm:inline">Facilitator</span>
+          {hasUnseenRecap && (
+            <span className="absolute right-0.5 top-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />
+          )}
+        </button>
         <button
           type="button"
           onClick={onHighlights}
@@ -595,7 +655,8 @@ function ShareRoomDialog({
 
 type RoomFeedItem =
   | { kind: "message"; id: string; row: RoomMessageRow; at: number }
-  | { kind: "join"; id: string; name: string; at: number };
+  | { kind: "join"; id: string; name: string; at: number }
+  | { kind: "system"; id: string; text: string; at: number };
 
 function RoomFeed({
   items,
@@ -647,10 +708,14 @@ function RoomFeed({
       >
         {messageCount === 0 && !selectMode && <EmptyRoom />}
 
-        {items.map((item) =>
-          item.kind === "join" ? (
-            <JoinNotice key={item.id} name={item.name} />
-          ) : selectMode ? (
+        {items.map((item) => {
+          if (item.kind === "join") {
+            return <JoinNotice key={item.id} name={item.name} />;
+          }
+          if (item.kind === "system") {
+            return <SystemNotice key={item.id} text={item.text} />;
+          }
+          return selectMode ? (
             <SelectableRow
               key={item.id}
               row={item.row}
@@ -670,8 +735,8 @@ function RoomFeed({
               onSave={onSave}
               onRemove={onRemove}
             />
-          ),
-        )}
+          );
+        })}
 
         {aiTyping && !selectMode && (
           <div className="flex items-end gap-2.5">
@@ -709,6 +774,17 @@ function JoinNotice({ name }: { name: string }) {
     <div className="flex justify-center py-1">
       <span className="rounded-full bg-muted/70 px-3 py-1 text-xs text-muted-foreground">
         {name === "You" ? "You joined the chat" : `${name} joined the chat`}
+      </span>
+    </div>
+  );
+}
+
+function SystemNotice({ text }: { text: string }) {
+  return (
+    <div className="flex justify-center py-1">
+      <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        <Wand2 size={12} />
+        {text}
       </span>
     </div>
   );

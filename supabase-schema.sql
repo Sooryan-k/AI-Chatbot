@@ -179,3 +179,59 @@ create index if not exists room_highlights_room_created
 
 -- Stream saved highlights to everyone in the room in real time.
 alter publication supabase_realtime add table room_highlights;
+
+-- ── Facilitator: recaps + action-item tasks ───────────────────────────────────
+-- The Facilitator agent reads a room's conversation and produces a structured
+-- recap (stored as jsonb). Recaps are shared with everyone in the room.
+create table if not exists room_reports (
+  id             text   primary key,
+  room_id        text   references rooms(id) on delete cascade not null,
+  content        jsonb  not null,   -- { tldr, decisions[], actionItems[], openQuestions[] }
+  created_by     uuid   references auth.users,
+  created_by_name text,
+  created_at     bigint not null
+);
+
+alter table room_reports enable row level security;
+
+create policy "Signed-in users can read room reports"
+  on room_reports for select to authenticated using (true);
+
+create policy "Users can create room reports"
+  on room_reports for insert to authenticated
+  with check (auth.uid() = created_by);
+
+create index if not exists room_reports_room_created
+  on room_reports (room_id, created_at desc);
+
+alter publication supabase_realtime add table room_reports;
+
+-- A shared, collaborative action-item checklist. Anyone in the room can add,
+-- tick off, or remove tasks.
+create table if not exists room_tasks (
+  id         text    primary key,
+  room_id    text    references rooms(id) on delete cascade not null,
+  text       text    not null,
+  owner      text,
+  done       boolean not null default false,
+  created_at bigint  not null
+);
+
+alter table room_tasks enable row level security;
+
+create policy "Signed-in users can read room tasks"
+  on room_tasks for select to authenticated using (true);
+
+create policy "Signed-in users can add room tasks"
+  on room_tasks for insert to authenticated with check (true);
+
+create policy "Signed-in users can update room tasks"
+  on room_tasks for update to authenticated using (true) with check (true);
+
+create policy "Signed-in users can remove room tasks"
+  on room_tasks for delete to authenticated using (true);
+
+create index if not exists room_tasks_room_created
+  on room_tasks (room_id, created_at desc);
+
+alter publication supabase_realtime add table room_tasks;
