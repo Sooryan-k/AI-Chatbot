@@ -15,6 +15,9 @@ model provider (OpenRouter by default). Deploys to Vercel.
 - Sign in with Google or an email magic link (Supabase Auth) so chats sync across devices
 - Cloud storage in Supabase PostgreSQL with Row-Level Security (each user sees only their own data)
 - Projects to group related chats, plus rename and delete
+- An **agent menu** in every chat: one tap to summarize the conversation, pull out
+  action items, surface risks and blind spots, or get concrete next steps — the
+  reply streams inline like any other message
 - Short share links: a read-only snapshot anyone can open, no account needed
 - **Voice mode**: dictate prompts and have replies read aloud, with an optional
   hands-free loop, all on free browser speech APIs (no paid TTS/STT)
@@ -71,7 +74,11 @@ Browser (React client)
   each user's rows private, so the anon key is safe to ship to the browser.
 - **Chat streaming:** `app/api/chat/route.ts` requires a signed-in user, then
   forwards the message history to the provider and streams the reply back. It
-  stores nothing; the client saves messages to Supabase.
+  stores nothing; the client saves messages to Supabase. The composer's **agent
+  menu** (`components/chat/agent-menu.tsx`, prompts in `lib/chat-agent.ts`) rides
+  this same path: each action sends a short, expert-phrased instruction over the
+  current thread, so the answer streams inline and persists like any message — no
+  extra route or storage.
 - **Share links:** a snapshot is stored once in the `shared_chats` table and the
   link carries only a short id (`/share/<id>`), readable by anyone.
 - **Voice mode:** the browser Web Speech API handles speech-to-text and
@@ -129,6 +136,7 @@ lib/
   use-room-highlights.ts   a room's shared Highlights (realtime)
   facilitator.ts           Facilitator data layer: transcript, recap, tools, tasks
   use-facilitator.ts       a room's recaps + shared checklist (realtime)
+  chat-agent.ts            one-tap agent actions for a normal chat (prompts)
   use-live-counts.ts       live "people here" count per room (lobby presence)
   room-presence.ts         shared rooms-lobby channel name
   profile.ts               username get/set (auth user metadata)
@@ -142,7 +150,7 @@ providers/
 components/
   layout/                  app shell, top bar, theme toggle
   sidebar/                 sidebar, project + chat items, account menu
-  chat/                    chat container, message list, message, composer, markdown, voice buttons
+  chat/                    chat container, message list, message, composer, markdown, voice buttons, agent menu
   share/                   share button, dialog, shared view
   room/                    start-session button, username gate, AI controls, highlights, facilitator panel
   ui/                      shared primitives (modal, hover tooltip)

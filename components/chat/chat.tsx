@@ -12,6 +12,7 @@ import { MessageList } from "./message-list";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { MicButton, VoiceModeButton } from "./voice-button";
+import { AgentMenu } from "./agent-menu";
 
 // core chat surface for one conversation. it wires the ai sdk useChat hook to
 // our composer and message list, and persists messages to supabase as the
@@ -148,20 +149,25 @@ export function Chat({
     }
   }
 
-  const voiceControls =
-    synth.supported || recognition.supported ? (
-      <div className="flex items-end gap-1">
-        {synth.supported && (
-          <VoiceModeButton active={voiceMode} onToggle={handleVoiceModeToggle} />
-        )}
-        {recognition.supported && (
-          <MicButton
-            listening={recognition.listening}
-            onToggle={handleMicToggle}
-          />
-        )}
-      </div>
-    ) : undefined;
+  // the agent menu (one-tap actions over the whole conversation) plus, where the
+  // browser supports them, the voice controls.
+  const composerControls = (
+    <div className="flex items-end gap-1">
+      <AgentMenu
+        disabled={isBusy || messages.length === 0}
+        onRun={(prompt) => send(prompt)}
+      />
+      {synth.supported && (
+        <VoiceModeButton active={voiceMode} onToggle={handleVoiceModeToggle} />
+      )}
+      {recognition.supported && (
+        <MicButton
+          listening={recognition.listening}
+          onToggle={handleMicToggle}
+        />
+      )}
+    </div>
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -182,7 +188,7 @@ export function Chat({
         onSend={handleSend}
         onStop={stop}
         isBusy={isBusy}
-        leftAccessory={voiceControls}
+        leftAccessory={composerControls}
       />
     </div>
   );
