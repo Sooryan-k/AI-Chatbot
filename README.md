@@ -1,10 +1,12 @@
 # ZooperChat
 
 A ChatGPT-style AI chat app with a custom **emerald** theme. Chats are saved to
-the cloud (Supabase PostgreSQL) behind email magic-link sign-in, so your history
-follows you across devices. Built with Next.js 16 (App Router), the Vercel AI
-SDK v6, Tailwind CSS v4, and an OpenAI-compatible model provider (OpenRouter by
-default). Deploys to Vercel.
+the cloud (Supabase PostgreSQL) behind Google or email magic-link sign-in, so
+your history follows you across devices. It goes beyond single-player chat with
+**live collaborative rooms** and a **Facilitator agent** that recaps the
+discussion and tracks action items for the whole room. Built with Next.js 16
+(App Router), the Vercel AI SDK v6, Tailwind CSS v4, and an OpenAI-compatible
+model provider (OpenRouter by default). Deploys to Vercel.
 
 ## Features
 
@@ -26,11 +28,25 @@ default). Deploys to Vercel.
   - "AI listen" memory: pin specific messages for the AI to read on follow-ups
   - shared **Highlights**: save an important answer (question + answer) for the
     whole room to find later; toggle save/remove, syncs live
+  - a **Facilitator agent**: on demand it reads the room and posts a shared,
+    structured recap — TL;DR, decisions, action items, and open questions — plus
+    a collaborative action-item **checklist** everyone can tick off in real time
+  - Facilitator **tools** (results shown only to you): **Catch me up** (what you
+    missed, summarized in your own language), **Risks** (blind spots and shaky
+    assumptions), and **Next steps**; plus **Name room**, where the AI titles the
+    room from the conversation and the new name updates live for everyone
+  - export a recap and its open tasks as a Markdown file
   - share any single message as a read-only link
   - a Live sessions history list with a live "people here" count per room; Home
     keeps a room, Leave drops it
+- Hover (or keyboard-focus) tooltips throughout the room that explain what each
+  feature does
 - Markdown rendering with syntax-highlighted code blocks and copy buttons
 - Dark and light mode (emerald palette in both)
+
+Everything runs on free tiers: the existing OpenRouter model powers the
+Facilitator (no tool-calling, embeddings, or paid APIs), and Supabase's free tier
+stores and streams it.
 
 ## Architecture at a glance
 
@@ -63,15 +79,27 @@ Browser (React client)
   callbacks. Nothing leaves the browser; feature-detected so it hides where
   unsupported.
 - **Live rooms:** a room (`rooms`, `room_messages`, `room_members`,
-  `room_highlights` tables) is a real-time chat any signed-in user can join via
-  `/room/<id>`. Messages sync through Supabase Realtime Postgres Changes;
-  Presence drives the online roster, join notices, and live usernames; Broadcast
-  carries typing events. A shared `rooms-lobby` presence channel lets the sidebar
-  show a live "people here" count per room without joining each one. A username
-  lives in auth user metadata (no email shown). When the AI toggle is on the
-  sender's client calls `/api/room-reply` (its context is the AI thread plus any
-  messages pinned via "AI listen") and persists the answer for everyone. Saved
-  **Highlights** (question + answer) are stored per room and stream to everyone.
+  `room_highlights`, `room_reports`, `room_tasks` tables) is a real-time chat any
+  signed-in user can join via `/room/<id>`. Messages sync through Supabase
+  Realtime Postgres Changes; Presence drives the online roster, join notices, and
+  live usernames; Broadcast carries typing events. A shared `rooms-lobby`
+  presence channel lets the sidebar show a live "people here" count per room
+  without joining each one. A username lives in auth user metadata (no email
+  shown). When the AI toggle is on the sender's client calls `/api/room-reply`
+  (its context is the AI thread plus any messages pinned via "AI listen") and
+  persists the answer for everyone. Saved **Highlights** (question + answer) are
+  stored per room and stream to everyone.
+- **Facilitator agent:** `app/api/facilitator/route.ts` is a signed-in,
+  non-streaming endpoint with a `mode` parameter. `recap` returns a structured
+  JSON recap; `catchup` / `risks` / `nextsteps` return localized Markdown for the
+  requester only; `title` returns a short room name. Because free models are not
+  reliable at strict tool-calling, the recap is asked for as plain JSON and
+  parsed defensively (first `{` to last `}`, with a fallback). Recaps persist to
+  `room_reports` and action items become shared `room_tasks`; both stream to the
+  room via Realtime, as do room renames (an UPDATE on `rooms`), so every header
+  and history list stays current. `lib/facilitator.ts` builds the transcript
+  (recent messages, capped for a small context window) and calls the route;
+  `lib/use-facilitator.ts` subscribes to the reports/tasks changes.
 
 ## Project structure
 
@@ -79,6 +107,7 @@ Browser (React client)
 app/
   api/chat/route.ts        streaming chat endpoint (model provider)
   api/room-reply/route.ts  non-streaming reply for live rooms
+  api/facilitator/route.ts Facilitator agent: recap / catchup / risks / next / title
   auth/login/page.tsx      Google + magic-link sign-in screen
   auth/callback/route.ts   exchanges the OAuth / magic-link code for a session
   auth/logout/route.ts     signs out
@@ -94,10 +123,12 @@ lib/
   use-conversations.ts     reactive chats store (optimistic + Supabase)
   use-projects.ts          reactive projects store
   share.ts                 store/fetch share snapshots, build short links
-  rooms.ts                 live-room messages, membership, history, highlights
-  use-room.ts              room realtime: messages, presence, typing, notices
+  rooms.ts                 live-room messages, membership, history, highlights, title
+  use-room.ts              room realtime: messages, presence, typing, notices, title
   use-rooms.ts             the user's Live sessions history list
   use-room-highlights.ts   a room's shared Highlights (realtime)
+  facilitator.ts           Facilitator data layer: transcript, recap, tools, tasks
+  use-facilitator.ts       a room's recaps + shared checklist (realtime)
   use-live-counts.ts       live "people here" count per room (lobby presence)
   room-presence.ts         shared rooms-lobby channel name
   profile.ts               username get/set (auth user metadata)
@@ -113,7 +144,8 @@ components/
   sidebar/                 sidebar, project + chat items, account menu
   chat/                    chat container, message list, message, composer, markdown, voice buttons
   share/                   share button, dialog, shared view
-  room/                    start-session button, username gate, AI controls, highlights
+  room/                    start-session button, username gate, AI controls, highlights, facilitator panel
+  ui/                      shared primitives (modal, hover tooltip)
 proxy.ts                   auth proxy (runs before page requests)
 supabase-schema.sql        tables + Row-Level Security to run in Supabase
 ```
@@ -124,11 +156,14 @@ supabase-schema.sql        tables + Row-Level Security to run in Supabase
 
 In your Supabase project, open **SQL Editor** and run the contents of
 [`supabase-schema.sql`](supabase-schema.sql). This creates the `projects`,
-`conversations`, `shared_chats`, `rooms`, `room_messages`, `room_members`, and
-`room_highlights` tables with Row-Level Security, and enables Supabase Realtime
-on `room_messages` and `room_highlights` (required for live rooms and shared
-Highlights). Usernames for live chat are stored in Supabase auth user metadata,
-so they need no table.
+`conversations`, `shared_chats`, `rooms`, `room_messages`, `room_members`,
+`room_highlights`, `room_reports`, and `room_tasks` tables with Row-Level
+Security, and enables Supabase Realtime on `rooms`, `room_messages`,
+`room_highlights`, `room_reports`, and `room_tasks` (required for live rooms,
+shared Highlights, and the Facilitator's recaps, checklist, and live room
+renames). Usernames for live chat are stored in Supabase auth user metadata, so
+they need no table. The file is idempotent — re-running it to add the newer
+Facilitator tables is safe.
 
 ### 2. Configure auth redirect URLs
 
