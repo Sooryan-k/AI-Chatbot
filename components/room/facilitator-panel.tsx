@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/chat/markdown";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   addTask,
   addTasks,
@@ -200,32 +201,43 @@ export function FacilitatorPanel({
 
         {/* actions */}
         <div className="flex items-center gap-2 border-b border-border px-5 py-3">
-          <button
-            type="button"
-            onClick={generate}
-            disabled={generating}
-            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+          <Tooltip
+            label={latest ? "Refresh recap" : "Generate recap"}
+            hint="Summarize the recent conversation into TL;DR, decisions, action items & open questions — shared with the room"
+            align="start"
           >
-            {generating ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <RefreshCw size={15} />
-            )}
-            {generating
-              ? "Reading the room…"
-              : latest
-                ? "Refresh recap"
-                : "Generate recap"}
-          </button>
-          {latest && (
             <button
               type="button"
-              onClick={exportMarkdown}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
+              onClick={generate}
+              disabled={generating}
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
             >
-              <Download size={15} />
-              <span className="hidden sm:inline">Export</span>
+              {generating ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <RefreshCw size={15} />
+              )}
+              {generating
+                ? "Reading the room…"
+                : latest
+                  ? "Refresh recap"
+                  : "Generate recap"}
             </button>
+          </Tooltip>
+          {latest && (
+            <Tooltip
+              label="Export"
+              hint="Download the recap and open checklist as a Markdown file"
+            >
+              <button
+                type="button"
+                onClick={exportMarkdown}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
+              >
+                <Download size={15} />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+            </Tooltip>
           )}
         </div>
 
@@ -234,6 +246,7 @@ export function FacilitatorPanel({
           <ToolButton
             icon={<History size={14} />}
             label="Catch me up"
+            hint="A quick summary of what you missed, in your language. Only you see it."
             busy={busyTool === "catchup"}
             disabled={!!busyTool}
             onClick={() => runTool("catchup")}
@@ -241,6 +254,7 @@ export function FacilitatorPanel({
           <ToolButton
             icon={<ShieldAlert size={14} />}
             label="Risks"
+            hint="Devil's-advocate pass: risks, blind spots & shaky assumptions. Only you see it."
             busy={busyTool === "risks"}
             disabled={!!busyTool}
             onClick={() => runTool("risks")}
@@ -248,6 +262,7 @@ export function FacilitatorPanel({
           <ToolButton
             icon={<Lightbulb size={14} />}
             label="Next steps"
+            hint="Concrete next actions to move the discussion forward. Only you see it."
             busy={busyTool === "nextsteps"}
             disabled={!!busyTool}
             onClick={() => runTool("nextsteps")}
@@ -255,6 +270,7 @@ export function FacilitatorPanel({
           <ToolButton
             icon={<Tag size={14} />}
             label="Name room"
+            hint="Let the AI title this room from the conversation — updates for everyone"
             busy={busyTool === "name"}
             disabled={!!busyTool}
             onClick={nameRoom}
@@ -332,17 +348,23 @@ export function FacilitatorPanel({
                 <section>
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <SectionTitle>Action items</SectionTitle>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        addTasks(roomId, latest.content.actionItems).catch(
-                          console.error,
-                        )
-                      }
-                      className="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-emerald-400"
+                    <Tooltip
+                      label="Add all to checklist"
+                      hint="Copy these action items into the shared checklist everyone can tick off"
+                      align="end"
                     >
-                      + Add all to checklist
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          addTasks(roomId, latest.content.actionItems).catch(
+                            console.error,
+                          )
+                        }
+                        className="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-emerald-400"
+                      >
+                        + Add all to checklist
+                      </button>
+                    </Tooltip>
                   </div>
                   <ul className="space-y-1 text-sm">
                     {latest.content.actionItems.map((a, i) => (
@@ -502,26 +524,30 @@ export function FacilitatorPanel({
 function ToolButton({
   icon,
   label,
+  hint,
   busy,
   disabled,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
+  hint: string;
   busy: boolean;
   disabled: boolean;
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 disabled:opacity-50"
-    >
-      {busy ? <Loader2 size={14} className="animate-spin" /> : icon}
-      {label}
-    </button>
+    <Tooltip label={label} hint={hint} align="start">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 disabled:opacity-50"
+      >
+        {busy ? <Loader2 size={14} className="animate-spin" /> : icon}
+        {label}
+      </button>
+    </Tooltip>
   );
 }
 

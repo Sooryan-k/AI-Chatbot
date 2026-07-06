@@ -49,6 +49,7 @@ import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/chat/markdown";
 import { Composer } from "@/components/chat/composer";
 import { Modal } from "@/components/ui/modal";
+import { Tooltip } from "@/components/ui/tooltip";
 import { ShareDialog } from "@/components/share/share-dialog";
 import { UsernameDialog, UsernameGate } from "@/components/room/username";
 import { AiListenButton, AiToggleButton } from "@/components/room/room-controls";
@@ -539,16 +540,21 @@ function RoomHeader({
     <header className="z-10 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/70 px-2.5 backdrop-blur-xl sm:px-4">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         {/* clear, elevated home button, set apart from the room title */}
-        <button
-          type="button"
-          onClick={onHome}
-          title="Back to home (keeps this room in your history)"
-          aria-label="Back to home"
-          className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-2 text-sm font-medium shadow-sm transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-300"
+        <Tooltip
+          label="Home"
+          hint="Back to your chats — this room stays in your history"
+          align="start"
         >
-          <Home size={16} />
-          <span className="hidden sm:inline">Home</span>
-        </button>
+          <button
+            type="button"
+            onClick={onHome}
+            aria-label="Back to home"
+            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-2 text-sm font-medium shadow-sm transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-300"
+          >
+            <Home size={16} />
+            <span className="hidden sm:inline">Home</span>
+          </button>
+        </Tooltip>
 
         <div className="hidden h-7 w-px bg-border sm:block" />
 
@@ -572,61 +578,87 @@ function RoomHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        <button
-          type="button"
-          onClick={onFacilitator}
-          title="Facilitator — AI recap, decisions & action items"
-          className="relative flex items-center gap-1.5 rounded-xl px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
+        <Tooltip
+          label="Facilitator"
+          hint="AI recap, decisions, action-item checklist & tools (catch-up, risks, next steps)"
         >
-          <Wand2 size={16} />
-          <span className="hidden sm:inline">Facilitator</span>
-          {hasUnseenRecap && (
-            <span className="absolute right-0.5 top-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={onHighlights}
-          title="Highlights — important answers saved by the room"
-          className="flex items-center gap-1.5 rounded-xl px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
+          <button
+            type="button"
+            onClick={onFacilitator}
+            aria-label="Facilitator"
+            className="relative flex items-center gap-1.5 rounded-xl px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
+          >
+            <Wand2 size={16} />
+            <span className="hidden sm:inline">Facilitator</span>
+            {hasUnseenRecap && (
+              <span className="absolute right-0.5 top-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />
+            )}
+          </button>
+        </Tooltip>
+        <Tooltip
+          label="Highlights"
+          hint="Important AI answers anyone in the room has saved"
         >
-          <Bookmark size={16} />
-          <span className="hidden sm:inline">Highlights</span>
-          {highlightCount > 0 && (
-            <span className="rounded-full bg-emerald-500/15 px-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-              {highlightCount}
-            </span>
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={onHighlights}
+            aria-label="Highlights"
+            className="flex items-center gap-1.5 rounded-xl px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
+          >
+            <Bookmark size={16} />
+            <span className="hidden sm:inline">Highlights</span>
+            {highlightCount > 0 && (
+              <span className="rounded-full bg-emerald-500/15 px-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                {highlightCount}
+              </span>
+            )}
+          </button>
+        </Tooltip>
         <PresenceBar online={online} meId={meId} />
-        <button
-          type="button"
-          onClick={onChangeName}
-          title={`Change your username (${username})`}
-          className="flex items-center gap-1.5 rounded-xl py-1 pl-1 pr-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:pr-2"
+        <Tooltip
+          label="Your name"
+          hint={`You appear as "${username}" — click to rename`}
         >
-          <Avatar name={username} className="h-7 w-7 text-xs" />
-          <span className="hidden max-w-28 truncate sm:inline">{username}</span>
-          <Pencil size={13} className="hidden shrink-0 sm:block" />
-        </button>
-        <button
-          type="button"
-          onClick={onShare}
-          title="Share / invite"
-          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-2.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+          <button
+            type="button"
+            onClick={onChangeName}
+            aria-label="Change your username"
+            className="flex items-center gap-1.5 rounded-xl py-1 pl-1 pr-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:pr-2"
+          >
+            <Avatar name={username} className="h-7 w-7 text-xs" />
+            <span className="hidden max-w-28 truncate sm:inline">{username}</span>
+            <Pencil size={13} className="hidden shrink-0 sm:block" />
+          </button>
+        </Tooltip>
+        <Tooltip
+          label="Invite"
+          hint="Copy the link — anyone with it can join this live room"
+          align="end"
         >
-          <Share2 size={15} />
-          <span className="hidden sm:inline">Share</span>
-        </button>
-        <button
-          type="button"
-          onClick={onLeave}
-          title="Leave room (removes it from your history)"
-          aria-label="Leave room"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+          <button
+            type="button"
+            onClick={onShare}
+            aria-label="Share / invite"
+            className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-2.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+          >
+            <Share2 size={15} />
+            <span className="hidden sm:inline">Share</span>
+          </button>
+        </Tooltip>
+        <Tooltip
+          label="Leave room"
+          hint="Exit and remove this room from your history"
+          align="end"
         >
-          <LogOut size={16} />
-        </button>
+          <button
+            type="button"
+            onClick={onLeave}
+            aria-label="Leave room"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+          >
+            <LogOut size={16} />
+          </button>
+        </Tooltip>
       </div>
     </header>
   );
