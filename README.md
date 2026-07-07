@@ -46,6 +46,8 @@ model provider (OpenRouter by default). Deploys to Vercel.
   feature does
 - Markdown rendering with syntax-highlighted code blocks and copy buttons
 - Dark and light mode (emerald palette in both)
+- Installable as a PWA (web app manifest, app icon, and a generated social
+  preview image)
 
 Everything runs on free tiers: the existing OpenRouter model powers the
 Facilitator (no tool-calling, embeddings, or paid APIs), and Supabase's free tier
@@ -112,50 +114,58 @@ Browser (React client)
 
 ```
 app/
-  api/chat/route.ts        streaming chat endpoint (model provider)
-  api/room-reply/route.ts  non-streaming reply for live rooms
-  api/facilitator/route.ts Facilitator agent: recap / catchup / risks / next / title
-  auth/login/page.tsx      Google + magic-link sign-in screen
-  auth/callback/route.ts   exchanges the OAuth / magic-link code for a session
-  auth/logout/route.ts     signs out
-  c/[id]/page.tsx          a single conversation
-  room/[id]/page.tsx       live collaborative room (realtime + presence)
-  share/[id]/page.tsx      public read-only shared view
-  layout.tsx               fonts, theme + auth providers, app shell
-  page.tsx                 redirects to a fresh chat id
+  api/chat/route.ts          streaming chat endpoint (model provider)
+  api/room-reply/route.ts    non-streaming reply for live rooms
+  api/facilitator/route.ts   Facilitator agent: recap / catchup / risks / next / title
+  auth/login/page.tsx        Google + magic-link sign-in screen
+  auth/callback/route.ts     exchanges the OAuth / magic-link code for a session
+  auth/logout/route.ts       signs out
+  c/[id]/page.tsx            a single conversation
+  room/[id]/page.tsx         live collaborative room (realtime + presence)
+  share/[id]/page.tsx        public read-only shared view
+  layout.tsx                 fonts, metadata, theme + auth providers, app shell
+  page.tsx                   redirects to a fresh chat id
+  manifest.ts                web app manifest (installable PWA)
+  apple-icon.tsx / opengraph-image.tsx   generated app icon + social preview
 lib/
-  supabase/client.ts       browser Supabase client
-  supabase/server.ts       server Supabase client (route handlers, proxy)
-  storage.ts               Supabase CRUD for chats and projects
-  use-conversations.ts     reactive chats store (optimistic + Supabase)
-  use-projects.ts          reactive projects store
-  share.ts                 store/fetch share snapshots, build short links
-  rooms.ts                 live-room messages, membership, history, highlights, title
-  use-room.ts              room realtime: messages, presence, typing, notices, title
-  use-rooms.ts             the user's Live sessions history list
-  use-room-highlights.ts   a room's shared Highlights (realtime)
-  facilitator.ts           Facilitator data layer: transcript, recap, tools, tasks
-  use-facilitator.ts       a room's recaps + shared checklist (realtime)
-  chat-agent.ts            one-tap agent actions for a normal chat (prompts)
-  use-live-counts.ts       live "people here" count per room (lobby presence)
-  room-presence.ts         shared rooms-lobby channel name
-  profile.ts               username get/set (auth user metadata)
-  sound.ts                 synthesized join chime (Web Audio)
+  supabase/client.ts         browser Supabase client
+  supabase/server.ts         server Supabase client (route handlers, proxy)
+  supabase/cookie-options.ts persistent-session cookie lifetime
+  storage.ts                 Supabase CRUD for chats and projects
+  use-conversations.ts       reactive chats store (optimistic + Supabase)
+  use-projects.ts            reactive projects store
+  share.ts                   store/fetch share snapshots, build short links
+  use-share.ts               share-dialog state + snapshot creation
+  rooms.ts                   live-room messages, membership, history, highlights, title
+  use-room.ts                room realtime: messages, presence, typing, notices, title
+  use-rooms.ts               the user's Live sessions history list
+  use-room-highlights.ts     a room's shared Highlights (realtime)
+  facilitator.ts             Facilitator data layer: transcript, recap, tools, tasks
+  use-facilitator.ts         a room's recaps + shared checklist (realtime)
+  chat-agent.ts              one-tap agent actions for a normal chat (prompts)
+  use-live-counts.ts         live "people here" count per room (lobby presence)
+  room-presence.ts           shared rooms-lobby channel name
+  profile.ts                 username get/set (auth user metadata)
+  sound.ts                   synthesized join chime (Web Audio)
   use-speech-recognition.ts  speech-to-text hook (Web Speech API)
   use-speech-synthesis.ts    text-to-speech hook (speechSynthesis)
-  provider.ts              configures the model from env
+  use-mounted.ts             SSR-safe "has mounted" flag
+  provider.ts                configures the model from env
+  types.ts                   shared types (ChatMessage, Conversation, Project)
+  utils.ts                   helpers: id generation, class merge, message text
 providers/
-  auth-provider.tsx        single source of auth state + per-user store refresh
-  theme-provider.tsx       dark / light theme provider
+  auth-provider.tsx          single source of auth state + per-user store refresh
+  theme-provider.tsx         dark / light theme provider
 components/
-  layout/                  app shell, top bar, theme toggle
-  sidebar/                 sidebar, project + chat items, account menu
-  chat/                    chat container, message list, message, composer, markdown, voice buttons, agent menu
-  share/                   share button, dialog, shared view
-  room/                    start-session button, username gate, AI controls, highlights, facilitator panel
-  ui/                      shared primitives (modal, hover tooltip)
-proxy.ts                   auth proxy (runs before page requests)
-supabase-schema.sql        tables + Row-Level Security to run in Supabase
+  layout/                    app shell, top bar, theme toggle
+  sidebar/                   sidebar, project + chat items, new-project dialog, account menu
+  chat/                      chat container, message list, message, composer, code block,
+                             markdown, empty state, voice buttons, agent menu
+  share/                     share button, dialog, shared view
+  room/                      start-session button, username gate, AI controls, facilitator panel
+  ui/                        shared primitives (modal, hover tooltip)
+proxy.ts                     auth proxy (runs before page requests)
+supabase-schema.sql          tables + Row-Level Security to run in Supabase
 ```
 
 ## Setup
@@ -208,11 +218,16 @@ Supabase values:
 AI_BASE_URL=https://openrouter.ai/api/v1
 AI_MODEL=cohere/north-mini-code:free   # any model your key can use
 AI_API_KEY=sk-or-v1-...                # from https://openrouter.ai/keys
+AI_SITE_URL=http://localhost:3000      # optional: OpenRouter attribution header
 
 # Supabase (Project Settings → API). The anon key is safe in the browser.
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 ```
+
+`AI_BASE_URL` and `AI_SITE_URL` are optional (they default to OpenRouter and
+`http://localhost:3000`); the model, API key, and both Supabase values are
+required.
 
 ## Run
 
@@ -227,8 +242,9 @@ email, click the magic link, and your chats will save to Supabase.
 ## Deploy to Vercel
 
 1. Push this repo to GitHub and import it at https://vercel.com.
-2. In the Vercel project's **Environment Variables**, add the same five vars
-   above (`AI_*` and `NEXT_PUBLIC_SUPABASE_*`).
+2. In the Vercel project's **Environment Variables**, add the vars above
+   (`AI_*` and `NEXT_PUBLIC_SUPABASE_*`); set `AI_SITE_URL` to your production
+   URL.
 3. Add your production callback URL in Supabase (step 2 above).
 4. Deploy. `.env.local` is gitignored, so secrets live only in Vercel.
 
