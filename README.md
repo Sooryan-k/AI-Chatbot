@@ -48,6 +48,10 @@ model provider (OpenRouter by default). Deploys to Vercel.
 - Dark and light mode (emerald palette in both)
 - Installable as a PWA (web app manifest, app icon, and a generated social
   preview image)
+- SEO metadata throughout: canonical urls, Open Graph and Twitter cards,
+  robots.txt, a sitemap, and schema.org JSON-LD. Shared links unfurl with the
+  conversation's own title and a generated image; private chats and rooms are
+  marked noindex
 
 Everything runs on free tiers: the existing OpenRouter model powers the
 Facilitator (no tool-calling, embeddings, or paid APIs), and Supabase's free tier
@@ -118,14 +122,20 @@ app/
   api/room-reply/route.ts    non-streaming reply for live rooms
   api/facilitator/route.ts   Facilitator agent: recap / catchup / risks / next / title
   auth/login/page.tsx        Google + magic-link sign-in screen
+  auth/login/layout.tsx      metadata for the public sign-in page
   auth/callback/route.ts     exchanges the OAuth / magic-link code for a session
   auth/logout/route.ts       signs out
   c/[id]/page.tsx            a single conversation
+  c/[id]/layout.tsx          metadata (private, noindex)
   room/[id]/page.tsx         live collaborative room (realtime + presence)
+  room/[id]/layout.tsx       metadata (link-only, noindex)
   share/[id]/page.tsx        public read-only shared view
-  layout.tsx                 fonts, metadata, theme + auth providers, app shell
+  share/[id]/layout.tsx      per-share title/description for link previews
+  share/[id]/opengraph-image.tsx   per-share social image (the chat's own title)
+  layout.tsx                 fonts, metadata, JSON-LD, theme + auth providers, app shell
   page.tsx                   redirects to a fresh chat id
   manifest.ts                web app manifest (installable PWA)
+  robots.ts / sitemap.ts     robots.txt and sitemap.xml
   apple-icon.tsx / opengraph-image.tsx   generated app icon + social preview
 lib/
   supabase/client.ts         browser Supabase client
@@ -134,7 +144,9 @@ lib/
   storage.ts                 Supabase CRUD for chats and projects
   use-conversations.ts       reactive chats store (optimistic + Supabase)
   use-projects.ts            reactive projects store
+  seo.ts                     site name, urls, descriptions + schema.org JSON-LD
   share.ts                   store/fetch share snapshots, build short links
+  share-server.ts            server-side share read (metadata + OG image)
   use-share.ts               share-dialog state + snapshot creation
   rooms.ts                   live-room messages, membership, history, highlights, title
   use-room.ts                room realtime: messages, presence, typing, notices, title
@@ -223,11 +235,15 @@ AI_SITE_URL=http://localhost:3000      # optional: OpenRouter attribution header
 # Supabase (Project Settings → API). The anon key is safe in the browser.
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+# Optional: the site's public URL, used for canonical links, Open Graph urls,
+# robots.txt and the sitemap. Defaults to the production domain.
+NEXT_PUBLIC_SITE_URL=https://your-app.vercel.app
 ```
 
-`AI_BASE_URL` and `AI_SITE_URL` are optional (they default to OpenRouter and
-`http://localhost:3000`); the model, API key, and both Supabase values are
-required.
+`AI_BASE_URL`, `AI_SITE_URL` and `NEXT_PUBLIC_SITE_URL` are optional (they
+default to OpenRouter, `http://localhost:3000` and the production domain); the
+model, API key, and both Supabase values are required.
 
 ## Run
 
