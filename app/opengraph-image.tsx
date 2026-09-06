@@ -6,6 +6,11 @@ export const alt = "ZooperChat, an AI chat app with cloud synced history";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+// the app mark, inlined as an svg data uri because satori cannot rasterise a
+// local svg file.
+const mark =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBmaWxsPSJub25lIj48cmVjdCB4PSI5NiIgeT0iMTIwIiB3aWR0aD0iMzIwIiBoZWlnaHQ9IjIxNiIgcng9IjUyIiBmaWxsPSIjZmZmZmZmIi8+PHBhdGggZD0iTTE2OCAzMjggTDE2OCA0MDQgTDI0NiAzMzAgWiIgZmlsbD0iI2ZmZmZmZiIvPjxwYXRoIGQ9Ik0yNTYgMTU4IEMyNzAgMjA0IDI4MCAyMTQgMzI2IDIyOCBDMjgwIDI0MiAyNzAgMjUyIDI1NiAyOTggQzI0MiAyNTIgMjMyIDI0MiAxODYgMjI4IEMyMzIgMjE0IDI0MiAyMDQgMjU2IDE1OCBaIiBmaWxsPSIjMDU5NjY5Ii8+PC9zdmc+";
+
 export default function OpengraphImage() {
   return new ImageResponse(
     (
@@ -32,12 +37,9 @@ export default function OpengraphImage() {
               borderRadius: 26,
               marginRight: 28,
               background: "linear-gradient(135deg, #34d399, #059669)",
-              color: "#ffffff",
-              fontSize: 68,
-              fontWeight: 700,
             }}
           >
-            Z
+            <img src={mark} alt="" width={86} height={86} />
           </div>
           <div style={{ display: "flex", fontSize: 80, fontWeight: 700 }}>
             <span>Zooper</span>
